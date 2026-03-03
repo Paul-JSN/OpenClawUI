@@ -166,6 +166,7 @@ export function renderApp(state: AppViewState) {
     usageResult: state.usageResult,
     usageCostSummary: state.usageCostSummary,
     usageStatus: state.usageStatus,
+    rangeKey: `${state.usageRangePreset}|${state.usageStartDate}|${state.usageEndDate}|${state.usageDisplayTimeZone}`,
   });
   const overviewAnalyticsView = buildUsageAnalyticsViewModel({
     usageResult: state.overviewUsageResult,
@@ -174,6 +175,7 @@ export function renderApp(state: AppViewState) {
     overviewUsage24hResult: state.overviewUsageSnapshot24hResult,
     overviewUsage24hCostSummary: state.overviewUsageSnapshot24hCostSummary,
     overviewUsage24hStatus: state.overviewUsageSnapshot24hStatus,
+    rangeKey: `overview|${state.overviewRange}`,
   });
   const chatDisabledReason = state.connected ? null : t("chat.disconnected");
   const isChat = state.tab === "chat";

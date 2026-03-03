@@ -1,5 +1,7 @@
 # OpenClaw UI
 
+RUN IN CHROME.
+
 Custom UI package for OpenClaw Control UI.
 
 Primary repo:
@@ -88,13 +90,3 @@ Requirements:
 5) Restart gateway.
 6) Show exact command output/logs.
 ```
-
-## 5) Deploy (UI-only)
-This repo includes GitHub Pages workflow:
-- `.github/workflows/deploy-ui-pages.yml`
-
-Enable in GitHub:
-1. `Settings -> Pages`
-2. `Source = GitHub Actions`
-
-Push to `main` to deploy UI-only.

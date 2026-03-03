@@ -112,6 +112,69 @@ describe("usage controller date interpretation params", () => {
     expect(state.usageResult).toMatchObject({ updatedAt: 1, sessions: [] });
   });
 
+  it("normalizes reversed custom date range", async () => {
+    const request = vi.fn(async () => ({}));
+    const state = createState(request);
+
+    await loadUsage(state, {
+      startDate: "2026-03-10",
+      endDate: "2026-03-01",
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      "sessions.usage",
+      expect.objectContaining({
+        startDate: "2026-03-01",
+        endDate: "2026-03-10",
+      }),
+    );
+    expect(state.usageStartDate).toBe("2026-03-01");
+    expect(state.usageEndDate).toBe("2026-03-10");
+  });
+
+  it("queues latest range while an earlier usage load is in flight", async () => {
+    let releaseFirstLoad: (() => void) | null = null;
+    const firstLoadGate = new Promise<void>((resolve) => {
+      releaseFirstLoad = resolve;
+    });
+
+    const request = vi.fn(async (method: string, params?: unknown) => {
+      if (method === "sessions.usage") {
+        const payload = (params ?? {}) as { startDate?: string; endDate?: string };
+        if (payload.startDate === "2026-02-01" && payload.endDate === "2026-02-07") {
+          await firstLoadGate;
+        }
+        return { sessions: [] };
+      }
+      return {};
+    });
+
+    const state = createState(request, {
+      usageStartDate: "2026-02-01",
+      usageEndDate: "2026-02-07",
+    });
+
+    const first = loadUsage(state);
+    await Promise.resolve();
+
+    await loadUsage(state, {
+      startDate: "2026-02-01",
+      endDate: "2026-03-01",
+    });
+
+    releaseFirstLoad?.();
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(request).toHaveBeenCalledWith(
+      "sessions.usage",
+      expect.objectContaining({
+        startDate: "2026-02-01",
+        endDate: "2026-03-01",
+      }),
+    );
+  });
+
   it("serializes non-Error objects without object-to-string coercion", () => {
     expect(__test.toErrorMessage({ reason: "nope" })).toBe('{"reason":"nope"}');
   });

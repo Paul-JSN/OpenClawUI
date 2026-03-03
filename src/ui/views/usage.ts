@@ -195,6 +195,8 @@ function sourceDimensionLabel(dimension: UsageSourceDimension): string {
 export function renderUsage(props: UsageProps) {
   const model = props.analyticsView;
   const usageLimits = model.usageLimits;
+  const providerApiLimitRows = usageLimits.filter((entry) => entry.source === "provider_api").length;
+  const estimatedLimitRows = usageLimits.filter((entry) => entry.source !== "provider_api").length;
   const totalTokens = model.snapshot.totalTokens;
   const totalCost = model.snapshot.totalCost;
   const messageCount = Math.max(0, model.snapshot.messageCount);
@@ -491,6 +493,13 @@ export function renderUsage(props: UsageProps) {
       ${
         props.sessionsLimitReached
           ? html`<div class="callout warning">Showing first 1,000 sessions. Narrow date range for full results.</div>`
+          : nothing
+      }
+      ${
+        estimatedLimitRows > 0
+          ? html`<div class="callout">
+              Limits source: provider API ${providerApiLimitRows} · estimated ${estimatedLimitRows}. Estimated rows are inferred from usage history and may lag or drift.
+            </div>`
           : nothing
       }
       <div class="muted" style="font-size: 11px;">Display timezone: ${displayTimeZoneLabel(props.displayTimeZone)}</div>

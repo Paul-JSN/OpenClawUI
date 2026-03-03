@@ -406,6 +406,7 @@ type BuildUsageAnalyticsViewModelArgs = {
   overviewUsage24hResult?: SessionsUsageResult | null;
   overviewUsage24hCostSummary?: CostUsageSummary | null;
   overviewUsage24hStatus?: UsageSummary | null;
+  rangeKey?: string;
 };
 
 type UsageVmCacheEntry = {
@@ -415,6 +416,7 @@ type UsageVmCacheEntry = {
   overviewUsage24hResultRef: SessionsUsageResult | null | undefined;
   overviewUsage24hCostSummaryRef: CostUsageSummary | null | undefined;
   overviewUsage24hStatusRef: UsageSummary | null | undefined;
+  rangeKey: string;
   result: UsageAnalyticsViewModel;
 };
 
@@ -422,6 +424,7 @@ const USAGE_VM_CACHE_MAX_ENTRIES = 6;
 const usageVmCache: UsageVmCacheEntry[] = [];
 
 function getCachedUsageVm(args: BuildUsageAnalyticsViewModelArgs): UsageAnalyticsViewModel | null {
+  const rangeKey = args.rangeKey ?? "";
   const hit = usageVmCache.find(
     (entry) =>
       entry.usageResultRef === args.usageResult &&
@@ -429,7 +432,8 @@ function getCachedUsageVm(args: BuildUsageAnalyticsViewModelArgs): UsageAnalytic
       entry.usageStatusRef === args.usageStatus &&
       entry.overviewUsage24hResultRef === args.overviewUsage24hResult &&
       entry.overviewUsage24hCostSummaryRef === args.overviewUsage24hCostSummary &&
-      entry.overviewUsage24hStatusRef === args.overviewUsage24hStatus,
+      entry.overviewUsage24hStatusRef === args.overviewUsage24hStatus &&
+      entry.rangeKey === rangeKey,
   );
   return hit?.result ?? null;
 }
@@ -442,6 +446,7 @@ function cacheUsageVm(args: BuildUsageAnalyticsViewModelArgs, result: UsageAnaly
     overviewUsage24hResultRef: args.overviewUsage24hResult,
     overviewUsage24hCostSummaryRef: args.overviewUsage24hCostSummary,
     overviewUsage24hStatusRef: args.overviewUsage24hStatus,
+    rangeKey: args.rangeKey ?? "",
     result,
   });
   if (usageVmCache.length > USAGE_VM_CACHE_MAX_ENTRIES) {

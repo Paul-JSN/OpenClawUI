@@ -56,6 +56,41 @@ const LEGACY_USAGE_DATE_PARAMS_INVALID_RE = /invalid sessions\.usage params/i;
 
 let legacyUsageDateParamsCache: Set<string> | null = null;
 
+type PendingUsageReload = {
+  startDate: string;
+  endDate: string;
+};
+
+const usageReloadQueue = new WeakMap<UsageState, PendingUsageReload | null>();
+
+function isIsoYmd(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function normalizeUsageDateRange(startDate: string, endDate: string): {
+  startDate: string;
+  endDate: string;
+} {
+  const safeStart = isIsoYmd(startDate) ? startDate : endDate;
+  const safeEnd = isIsoYmd(endDate) ? endDate : startDate;
+  if (!isIsoYmd(safeStart) || !isIsoYmd(safeEnd)) {
+    return {
+      startDate,
+      endDate,
+    };
+  }
+  if (safeStart <= safeEnd) {
+    return {
+      startDate: safeStart,
+      endDate: safeEnd,
+    };
+  }
+  return {
+    startDate: safeEnd,
+    endDate: safeStart,
+  };
+}
+
 function getLocalStorage(): Storage | null {
   if (typeof window !== "undefined" && window.localStorage) {
     return window.localStorage;
@@ -296,18 +331,30 @@ export async function loadUsage(
     endDate?: string;
   },
 ) {
-  if (state.usageLoading) {
-    return;
+  const requestedStartDate = overrides?.startDate ?? state.usageStartDate;
+  const requestedEndDate = overrides?.endDate ?? state.usageEndDate;
+  const normalizedRange = normalizeUsageDateRange(requestedStartDate, requestedEndDate);
+  const startDate = normalizedRange.startDate;
+  const endDate = normalizedRange.endDate;
+
+  if (state.usageStartDate !== startDate) {
+    state.usageStartDate = startDate;
+  }
+  if (state.usageEndDate !== endDate) {
+    state.usageEndDate = endDate;
   }
 
-  const startDate = overrides?.startDate ?? state.usageStartDate;
-  const endDate = overrides?.endDate ?? state.usageEndDate;
+  if (state.usageLoading) {
+    usageReloadQueue.set(state, { startDate, endDate });
+    return;
+  }
 
   const client = state.client;
   if (!client || !state.connected) {
     return;
   }
 
+  usageReloadQueue.set(state, null);
   state.usageLoading = true;
   state.usageError = null;
   try {
@@ -325,6 +372,11 @@ export async function loadUsage(
     state.usageError = toErrorMessage(err);
   } finally {
     state.usageLoading = false;
+    const pending = usageReloadQueue.get(state);
+    if (pending && (pending.startDate !== startDate || pending.endDate !== endDate)) {
+      usageReloadQueue.set(state, null);
+      void loadUsage(state, pending);
+    }
   }
 }
 
