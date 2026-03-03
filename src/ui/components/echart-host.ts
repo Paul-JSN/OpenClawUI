@@ -14,6 +14,7 @@ export class OpenClawEchartHost extends LitElement {
   private resizeObserver: ResizeObserver | null = null;
   private observerResizeRaf: number | null = null;
   private transitionResizeRaf: number | null = null;
+  private transitionResizeTimeout: number | null = null;
   private readonly onLayoutTransition = () => {
     this.runTransitionResize(520);
   };
@@ -46,6 +47,10 @@ export class OpenClawEchartHost extends LitElement {
       cancelAnimationFrame(this.transitionResizeRaf);
       this.transitionResizeRaf = null;
     }
+    if (this.transitionResizeTimeout !== null) {
+      clearTimeout(this.transitionResizeTimeout);
+      this.transitionResizeTimeout = null;
+    }
     if (this.chart) {
       this.chart.dispose();
       this.chart = null;
@@ -59,7 +64,7 @@ export class OpenClawEchartHost extends LitElement {
     }
     this.chart = echarts.init(this.canvasEl, undefined, {
       renderer: "canvas",
-      useDirtyRect: false,
+      useDirtyRect: true,
     });
   }
 
@@ -69,8 +74,10 @@ export class OpenClawEchartHost extends LitElement {
       return;
     }
     this.chart.setOption(this.option, {
-      notMerge: true,
-      lazyUpdate: false,
+      notMerge: false,
+      lazyUpdate: true,
+      replaceMerge: ["series"],
+      silent: true,
     });
   }
 
@@ -102,20 +109,29 @@ export class OpenClawEchartHost extends LitElement {
       cancelAnimationFrame(this.transitionResizeRaf);
       this.transitionResizeRaf = null;
     }
-    const endAt = performance.now() + durationMs;
-    const tick = () => {
-      this.chart?.resize({
-        animation: {
-          duration: 110,
-        },
-      });
-      if (performance.now() < endAt) {
-        this.transitionResizeRaf = requestAnimationFrame(tick);
-      } else {
-        this.transitionResizeRaf = null;
-      }
-    };
-    this.transitionResizeRaf = requestAnimationFrame(tick);
+    if (this.transitionResizeTimeout !== null) {
+      clearTimeout(this.transitionResizeTimeout);
+      this.transitionResizeTimeout = null;
+    }
+
+    // Avoid per-frame resize storms during layout transitions.
+    this.chart.resize({
+      animation: {
+        duration: 90,
+      },
+    });
+
+    this.transitionResizeRaf = requestAnimationFrame(() => {
+      this.transitionResizeRaf = null;
+      this.transitionResizeTimeout = window.setTimeout(() => {
+        this.chart?.resize({
+          animation: {
+            duration: 70,
+          },
+        });
+        this.transitionResizeTimeout = null;
+      }, Math.max(0, durationMs));
+    });
   }
 
   private detachResizeObserver() {

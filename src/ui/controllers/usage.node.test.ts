@@ -72,6 +72,46 @@ describe("usage controller date interpretation params", () => {
     expect(state.usageError).toBe("request failed");
   });
 
+  it("keeps sessions usage when usage.cost fails", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "sessions.usage") {
+        return {
+          updatedAt: 1,
+          sessions: [],
+          totals: {
+            input: 0,
+            output: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: 0,
+            totalCost: 0,
+            inputCost: 0,
+            outputCost: 0,
+            cacheReadCost: 0,
+            cacheWriteCost: 0,
+            missingCostEntries: 0,
+          },
+          aggregates: {
+            byModel: [],
+          },
+        };
+      }
+      if (method === "usage.cost") {
+        throw new Error("usage.cost failed");
+      }
+      return {
+        updatedAt: 1,
+        providers: [],
+      };
+    });
+    const state = createState(request);
+
+    await loadUsage(state);
+
+    expect(state.usageError).toBeNull();
+    expect(state.usageResult).toMatchObject({ updatedAt: 1, sessions: [] });
+  });
+
   it("serializes non-Error objects without object-to-string coercion", () => {
     expect(__test.toErrorMessage({ reason: "nope" })).toBe('{"reason":"nope"}');
   });

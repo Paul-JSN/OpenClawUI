@@ -4,9 +4,9 @@ This repository can deploy **UI only** via GitHub Pages.
 
 ## 1) Push to GitHub
 
-Use your target repo:
+Target repo:
 
-`https://github.com/Paul-Jeon-Sion/OpenClawUI`
+`https://github.com/Paul-JSN/OpenClawUI`
 
 ## 2) GitHub Pages settings
 
@@ -34,3 +34,4 @@ Build output:
 
 - This deploys only the frontend bundle.
 - No backend/control-plane runtime is deployed by this workflow.
+- For OpenClaw runtime installs (non-Pages), run `scripts/reapply-openclaw-ui.sh` after updates to avoid rollback.

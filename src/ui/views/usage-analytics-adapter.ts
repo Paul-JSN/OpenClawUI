@@ -399,6 +399,56 @@ const EMPTY_VIEW_MODEL: UsageAnalyticsViewModel = {
   },
 };
 
+type BuildUsageAnalyticsViewModelArgs = {
+  usageResult: SessionsUsageResult | null;
+  usageCostSummary: CostUsageSummary | null;
+  usageStatus: UsageSummary | null;
+  overviewUsage24hResult?: SessionsUsageResult | null;
+  overviewUsage24hCostSummary?: CostUsageSummary | null;
+  overviewUsage24hStatus?: UsageSummary | null;
+};
+
+type UsageVmCacheEntry = {
+  usageResultRef: SessionsUsageResult | null;
+  usageCostSummaryRef: CostUsageSummary | null;
+  usageStatusRef: UsageSummary | null;
+  overviewUsage24hResultRef: SessionsUsageResult | null | undefined;
+  overviewUsage24hCostSummaryRef: CostUsageSummary | null | undefined;
+  overviewUsage24hStatusRef: UsageSummary | null | undefined;
+  result: UsageAnalyticsViewModel;
+};
+
+const USAGE_VM_CACHE_MAX_ENTRIES = 6;
+const usageVmCache: UsageVmCacheEntry[] = [];
+
+function getCachedUsageVm(args: BuildUsageAnalyticsViewModelArgs): UsageAnalyticsViewModel | null {
+  const hit = usageVmCache.find(
+    (entry) =>
+      entry.usageResultRef === args.usageResult &&
+      entry.usageCostSummaryRef === args.usageCostSummary &&
+      entry.usageStatusRef === args.usageStatus &&
+      entry.overviewUsage24hResultRef === args.overviewUsage24hResult &&
+      entry.overviewUsage24hCostSummaryRef === args.overviewUsage24hCostSummary &&
+      entry.overviewUsage24hStatusRef === args.overviewUsage24hStatus,
+  );
+  return hit?.result ?? null;
+}
+
+function cacheUsageVm(args: BuildUsageAnalyticsViewModelArgs, result: UsageAnalyticsViewModel) {
+  usageVmCache.unshift({
+    usageResultRef: args.usageResult,
+    usageCostSummaryRef: args.usageCostSummary,
+    usageStatusRef: args.usageStatus,
+    overviewUsage24hResultRef: args.overviewUsage24hResult,
+    overviewUsage24hCostSummaryRef: args.overviewUsage24hCostSummary,
+    overviewUsage24hStatusRef: args.overviewUsage24hStatus,
+    result,
+  });
+  if (usageVmCache.length > USAGE_VM_CACHE_MAX_ENTRIES) {
+    usageVmCache.length = USAGE_VM_CACHE_MAX_ENTRIES;
+  }
+}
+
 function normalizeProvider(value: string | undefined): string {
   if (!value) {
     return "unknown";
@@ -1035,14 +1085,12 @@ function buildLocalSnapshot24h(args: {
   };
 }
 
-export function buildUsageAnalyticsViewModel(args: {
-  usageResult: SessionsUsageResult | null;
-  usageCostSummary: CostUsageSummary | null;
-  usageStatus: UsageSummary | null;
-  overviewUsage24hResult?: SessionsUsageResult | null;
-  overviewUsage24hCostSummary?: CostUsageSummary | null;
-  overviewUsage24hStatus?: UsageSummary | null;
-}): UsageAnalyticsViewModel {
+export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelArgs): UsageAnalyticsViewModel {
+  const cached = getCachedUsageVm(args);
+  if (cached) {
+    return cached;
+  }
+
   const now = Date.now();
   const parsedUsage = SessionsUsageResultSchema.safeParse(args.usageResult);
   const parsedCost = CostUsageSummarySchema.safeParse(args.usageCostSummary);
@@ -1300,8 +1348,10 @@ export function buildUsageAnalyticsViewModel(args: {
 
   const validated = UsageAnalyticsViewModelSchema.safeParse(viewModel);
   if (!validated.success) {
+    cacheUsageVm(args, EMPTY_VIEW_MODEL);
     return EMPTY_VIEW_MODEL;
   }
 
+  cacheUsageVm(args, validated.data);
   return validated.data;
 }

@@ -195,7 +195,7 @@ async function requestUsageData(
 
   const runUsageRequests = async (includeDateInterpretation: boolean) => {
     const dateInterpretation = buildDateInterpretationParams(includeDateInterpretation);
-    return await Promise.all([
+    const [sessionsOutcome, costOutcome] = await Promise.allSettled([
       client.request("sessions.usage", {
         startDate,
         endDate,
@@ -209,6 +209,38 @@ async function requestUsageData(
         ...dateInterpretation,
       }),
     ]);
+    return { sessionsOutcome, costOutcome };
+  };
+
+  const firstRejectedReason = (
+    outcomes: {
+      sessionsOutcome: PromiseSettledResult<unknown>;
+      costOutcome: PromiseSettledResult<unknown>;
+    },
+  ): unknown | null => {
+    if (outcomes.sessionsOutcome.status === "rejected") {
+      return outcomes.sessionsOutcome.reason;
+    }
+    if (outcomes.costOutcome.status === "rejected") {
+      return outcomes.costOutcome.reason;
+    }
+    return null;
+  };
+
+  const isLegacyUnsupported = (
+    outcomes: {
+      sessionsOutcome: PromiseSettledResult<unknown>;
+      costOutcome: PromiseSettledResult<unknown>;
+    },
+  ): boolean => {
+    const reasons: unknown[] = [];
+    if (outcomes.sessionsOutcome.status === "rejected") {
+      reasons.push(outcomes.sessionsOutcome.reason);
+    }
+    if (outcomes.costOutcome.status === "rejected") {
+      reasons.push(outcomes.costOutcome.reason);
+    }
+    return reasons.some((reason) => isLegacyDateInterpretationUnsupportedError(reason));
   };
 
   const runUsageStatusRequest = async (): Promise<unknown | null> => {
@@ -222,27 +254,39 @@ async function requestUsageData(
   const includeDateInterpretation = shouldSendLegacyDateInterpretation(state);
   const statusPromise = runUsageStatusRequest();
 
-  try {
-    const [sessionsRes, costRes] = await runUsageRequests(includeDateInterpretation);
+  const finalize = async (outcomes: {
+    sessionsOutcome: PromiseSettledResult<unknown>;
+    costOutcome: PromiseSettledResult<unknown>;
+  }) => {
+    const sessionsRes =
+      outcomes.sessionsOutcome.status === "fulfilled"
+        ? ((outcomes.sessionsOutcome.value as SessionsUsageResult) ?? null)
+        : null;
+    const costRes =
+      outcomes.costOutcome.status === "fulfilled"
+        ? ((outcomes.costOutcome.value as CostUsageSummary) ?? null)
+        : null;
+
+    if (!sessionsRes && !costRes) {
+      throw firstRejectedReason(outcomes) ?? new Error("usage requests failed");
+    }
+
     const statusRes = await statusPromise;
     return {
-      sessionsRes: (sessionsRes as SessionsUsageResult) ?? null,
-      costRes: (costRes as CostUsageSummary) ?? null,
+      sessionsRes,
+      costRes,
       statusRes: (statusRes as UsageSummary) ?? null,
     };
-  } catch (err) {
-    if (includeDateInterpretation && isLegacyDateInterpretationUnsupportedError(err)) {
-      rememberLegacyDateInterpretation(state);
-      const [sessionsRes, costRes] = await runUsageRequests(false);
-      const statusRes = await statusPromise;
-      return {
-        sessionsRes: (sessionsRes as SessionsUsageResult) ?? null,
-        costRes: (costRes as CostUsageSummary) ?? null,
-        statusRes: (statusRes as UsageSummary) ?? null,
-      };
-    }
-    throw err;
+  };
+
+  const outcomes = await runUsageRequests(includeDateInterpretation);
+  if (includeDateInterpretation && isLegacyUnsupported(outcomes)) {
+    rememberLegacyDateInterpretation(state);
+    const fallbackOutcomes = await runUsageRequests(false);
+    return await finalize(fallbackOutcomes);
   }
+
+  return await finalize(outcomes);
 }
 
 export async function loadUsage(
