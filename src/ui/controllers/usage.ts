@@ -236,7 +236,7 @@ async function requestUsageData(
         endDate,
         ...dateInterpretation,
         limit: 1000,
-        includeContextWeight: true,
+        includeContextWeight: false,
       }),
       client.request("usage.cost", {
         startDate,

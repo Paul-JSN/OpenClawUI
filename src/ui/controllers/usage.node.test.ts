@@ -52,7 +52,7 @@ describe("usage controller date interpretation params", () => {
       endDate: "2026-02-16",
       mode: "utc",
       limit: 1000,
-      includeContextWeight: true,
+      includeContextWeight: false,
     });
     expect(request).toHaveBeenNthCalledWith(3, "usage.cost", {
       startDate: "2026-02-16",
@@ -208,7 +208,7 @@ describe("usage controller date interpretation params", () => {
       endDate: "2026-02-16",
       mode: "utc",
       limit: 1000,
-      includeContextWeight: true,
+      includeContextWeight: false,
     });
     expect(request).toHaveBeenNthCalledWith(3, "usage.cost", {
       startDate: "2026-02-16",
@@ -219,7 +219,7 @@ describe("usage controller date interpretation params", () => {
       startDate: "2026-02-16",
       endDate: "2026-02-16",
       limit: 1000,
-      includeContextWeight: true,
+      includeContextWeight: false,
     });
     expect(request).toHaveBeenNthCalledWith(5, "usage.cost", {
       startDate: "2026-02-16",
@@ -234,7 +234,7 @@ describe("usage controller date interpretation params", () => {
       startDate: "2026-02-16",
       endDate: "2026-02-16",
       limit: 1000,
-      includeContextWeight: true,
+      includeContextWeight: false,
     });
     expect(request).toHaveBeenNthCalledWith(8, "usage.cost", {
       startDate: "2026-02-16",

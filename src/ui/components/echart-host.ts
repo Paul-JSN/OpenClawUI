@@ -15,6 +15,8 @@ export class OpenClawEchartHost extends LitElement {
   private observerResizeRaf: number | null = null;
   private transitionResizeRaf: number | null = null;
   private transitionResizeTimeout: number | null = null;
+  private optionApplyTimer: number | null = null;
+  private pendingOption: EChartsOption | null = null;
   private readonly onLayoutTransition = () => {
     this.runTransitionResize(520);
   };
@@ -25,14 +27,14 @@ export class OpenClawEchartHost extends LitElement {
 
   firstUpdated() {
     this.ensureChart();
-    this.applyOption();
+    this.queueApplyOption();
     this.attachResizeObserver();
     window.addEventListener("openclaw-layout-transition", this.onLayoutTransition);
   }
 
   updated(changed: Map<string, unknown>) {
     if (changed.has("option")) {
-      this.applyOption();
+      this.queueApplyOption();
     }
   }
 
@@ -51,6 +53,10 @@ export class OpenClawEchartHost extends LitElement {
       clearTimeout(this.transitionResizeTimeout);
       this.transitionResizeTimeout = null;
     }
+    if (this.optionApplyTimer !== null) {
+      clearTimeout(this.optionApplyTimer);
+      this.optionApplyTimer = null;
+    }
     if (this.chart) {
       this.chart.dispose();
       this.chart = null;
@@ -68,15 +74,35 @@ export class OpenClawEchartHost extends LitElement {
     });
   }
 
-  private applyOption() {
-    this.ensureChart();
-    if (!this.chart || !this.option) {
+  private queueApplyOption() {
+    this.pendingOption = this.option;
+    if (this.optionApplyTimer !== null) {
       return;
     }
-    this.chart.setOption(this.option, {
-      notMerge: false,
+    this.optionApplyTimer = window.setTimeout(() => {
+      this.optionApplyTimer = null;
+      this.applyOptionNow(this.pendingOption);
+    }, 70);
+  }
+
+  private applyOptionNow(option: EChartsOption | null) {
+    this.ensureChart();
+    if (!this.chart || !option) {
+      return;
+    }
+
+    const normalizedOption = {
+      ...option,
+      animation: false,
+      animationDuration: 0,
+      animationDurationUpdate: 0,
+      animationEasing: "linear",
+      animationEasingUpdate: "linear",
+    } as EChartsOption;
+
+    this.chart.setOption(normalizedOption, {
+      notMerge: true,
       lazyUpdate: true,
-      replaceMerge: ["series"],
       silent: true,
     });
   }
