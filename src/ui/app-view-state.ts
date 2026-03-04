@@ -186,6 +186,7 @@ export type AppViewState = {
   usageEndDate: string;
   usageRangePreset: "today" | "7d" | "30d" | "custom";
   usageSourceDimension: "models" | "providers" | "tools" | "agents" | "channels";
+  usageDetailPanel: "model-detail" | "limit-windows";
   usageSelectedSessions: string[];
   usageSelectedDays: string[];
   usageSelectedHours: number[];

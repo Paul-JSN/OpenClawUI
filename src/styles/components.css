@@ -4356,11 +4356,20 @@
     background-color 360ms ease;
 }
 
-.usage-source-card--models { animation: usage-source-swap-a 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.usage-source-card--providers { animation: usage-source-swap-b 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.usage-source-card--tools { animation: usage-source-swap-c 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.usage-source-card--agents { animation: usage-source-swap-d 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.usage-source-card--channels { animation: usage-source-swap-e 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.usage-source-card--models { animation: usage-source-swap-a 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.usage-source-card--providers { animation: usage-source-swap-b 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.usage-source-card--tools { animation: usage-source-swap-c 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.usage-source-card--agents { animation: usage-source-swap-d 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.usage-source-card--channels { animation: usage-source-swap-e 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.usage-detail-panel {
+  min-height: 312px;
+  animation: usage-detail-panel-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.usage-detail-table {
+  transition: opacity 0.2s ease;
+}
 
 .react-chart-card--total-cost24h .react-cost-snapshot__head {
   align-items: flex-start;
@@ -4795,6 +4804,19 @@
 @keyframes usage-source-swap-e {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes usage-detail-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 
 @media (max-width: 1280px) {

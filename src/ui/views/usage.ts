@@ -1,5 +1,4 @@
 import { html, nothing, type TemplateResult } from "lit";
-import { keyed } from "lit/directives/keyed.js";
 import "../components/echart-host.ts";
 import { buildReactTokenUsageBarOption } from "./charts/options.ts";
 import { displayTimeZoneLabel } from "./charts/timezone.ts";
@@ -7,6 +6,7 @@ import type {
   SessionLogEntry,
   SessionLogRole,
   UsageColumnId,
+  UsageDetailPanel,
   UsageProps,
   UsageSourceDimension,
 } from "./usageTypes.ts";
@@ -28,6 +28,11 @@ const SOURCE_DIMENSIONS: Array<{ key: UsageSourceDimension; label: string }> = [
   { key: "tools", label: "Tools" },
   { key: "agents", label: "Agents" },
   { key: "channels", label: "Channels" },
+];
+
+const DETAIL_PANELS: Array<{ key: UsageDetailPanel; label: string }> = [
+  { key: "model-detail", label: "Model Detail" },
+  { key: "limit-windows", label: "Limit Windows" },
 ];
 
 const RANGE_PRESETS: Array<{ key: UsageProps["rangePreset"]; label: string }> = [
@@ -307,15 +312,6 @@ export function renderUsage(props: UsageProps) {
       color: SOURCE_COLORS[index % SOURCE_COLORS.length],
     };
   });
-  const breakdownMotionKey = [
-    props.sourceDimension,
-    props.rangePreset,
-    props.displayTimeZone,
-    props.startDate,
-    props.endDate,
-    ...sourceStack.map((row) => `${row.key}:${Math.round(row.value)}:${row.pct.toFixed(1)}`),
-  ].join("|");
-
   const modelDetailRows = (props.aggregates?.byModel ?? [])
     .map((row) => {
       const provider = (row.provider ?? "unknown").trim() || "unknown";
@@ -491,161 +487,163 @@ export function renderUsage(props: UsageProps) {
             </div>
           </div>
 
-          ${keyed(
-            breakdownMotionKey,
-            html`
-              <div class="react-cost-snapshot usage-source-card usage-source-card--${props.sourceDimension}">
-                <div class="react-cost-snapshot__head">
-                  <strong>
-                    ${
-                      dimensionMetric === "toolCalls"
-                        ? `${Math.round(dimensionTotal).toLocaleString()}`
-                        : formatTokens(dimensionTotal)
-                    }
-                  </strong>
-                  <span class="react-cost-snapshot__icon">${sourceDimensionIcon(props.sourceDimension)}</span>
-                </div>
-                <div class="usage-source-card__meta">
-                  <span>${sourceDimensionLabel(props.sourceDimension)}</span>
-                  <span>${dimensionMetric === "toolCalls" ? "tool calls share" : "token share"}</span>
-                  <span>${formatUsd(dimensionCostTotal)}</span>
-                </div>
-                <div class="react-cost-breakdown">
-                  ${
-                    sourceStack.length === 0
-                      ? html`<span class="muted">No source data for this range.</span>`
-                      : sourceStack.map(
-                          (row, index) => html`
-                            <div class="react-cost-breakdown__row usage-source-row" style="--usage-row-delay:${index * 42}ms;">
-                              <div class="react-cost-breakdown__meta">
-                                <span><i style="background:${row.color}"></i>${row.label}</span>
-                                <b>
-                                  ${
-                                    dimensionMetric === "toolCalls"
-                                      ? `${Math.round(row.value).toLocaleString()} calls`
-                                      : formatTokens(row.value)
-                                  }
-                                </b>
-                                <em>${row.pct.toFixed(0)}%</em>
-                              </div>
-                            </div>
-                          `,
-                        )
-                  }
-                </div>
-                <div class="react-cost-snapshot__stack usage-source-stack">
-                  ${sourceStack.map(
-                    (row) =>
-                      html`<span class="usage-source-stack__segment" style="width:${Math.max(0, row.pct)}%; background:${row.color};"></span>`,
-                  )}
-                </div>
-              </div>
-            `,
-          )}
+          <div class="react-cost-snapshot usage-source-card usage-source-card--${props.sourceDimension}">
+            <div class="react-cost-snapshot__head">
+              <strong>
+                ${
+                  dimensionMetric === "toolCalls"
+                    ? `${Math.round(dimensionTotal).toLocaleString()}`
+                    : formatTokens(dimensionTotal)
+                }
+              </strong>
+              <span class="react-cost-snapshot__icon">${sourceDimensionIcon(props.sourceDimension)}</span>
+            </div>
+            <div class="usage-source-card__meta">
+              <span>${sourceDimensionLabel(props.sourceDimension)}</span>
+              <span>${dimensionMetric === "toolCalls" ? "tool calls share" : "token share"}</span>
+              <span>${formatUsd(dimensionCostTotal)}</span>
+            </div>
+            <div class="react-cost-breakdown">
+              ${
+                sourceStack.length === 0
+                  ? html`<span class="muted">No source data for this range.</span>`
+                  : sourceStack.map(
+                      (row) => html`
+                        <div class="react-cost-breakdown__row">
+                          <div class="react-cost-breakdown__meta">
+                            <span><i style="background:${row.color}"></i>${row.label}</span>
+                            <b>
+                              ${
+                                dimensionMetric === "toolCalls"
+                                  ? `${Math.round(row.value).toLocaleString()} calls`
+                                  : formatTokens(row.value)
+                              }
+                            </b>
+                            <em>${row.pct.toFixed(0)}%</em>
+                          </div>
+                        </div>
+                      `,
+                    )
+              }
+            </div>
+            <div class="react-cost-snapshot__stack usage-source-stack">
+              ${sourceStack.map(
+                (row) =>
+                  html`<span class="usage-source-stack__segment" style="width:${Math.max(0, row.pct)}%; background:${row.color};"></span>`,
+              )}
+            </div>
+          </div>
         </article>
       </div>
 
       <section class="react-provider-table-wrap">
-        <div class="react-provider-table-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <span>Provider / Model Detail</span>
+        <div class="usage-source-panel__head" style="margin-bottom: 8px;">
+          <h3>Detail & Limits</h3>
+          <div class="usage-source-segmented" role="tablist" aria-label="Usage detail panel">
+            ${DETAIL_PANELS.map((entry) => html`
+              <button
+                class="usage-source-segmented__btn ${props.detailPanel === entry.key ? "active" : ""}"
+                type="button"
+                @click=${() => props.onDetailPanelChange(entry.key)}
+              >
+                ${entry.label}
+              </button>
+            `)}
+          </div>
         </div>
-        ${
-          modelDetailRows.length === 0
-            ? html`<div class="callout warning">No model usage rows found for this range.</div>`
-            : html`
-                <table class="react-provider-table">
-                  <thead>
-                    <tr>
-                      <th>Provider</th>
-                      <th>Model</th>
-                      <th>Requests</th>
-                      <th>Tokens</th>
-                      <th>Cost</th>
-                      <th>Avg Tokens / Request</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${modelDetailRows.map(
-                      (entry) => html`
-                        <tr>
-                          <td><span class="react-provider-badge">${entry.provider}</span></td>
-                          <td><span class="react-model-label">${entry.model}</span></td>
-                          <td>${entry.requests.toLocaleString()}</td>
-                          <td>${formatTokens(entry.tokens)}</td>
-                          <td>${formatUsd(entry.cost)}</td>
-                          <td>${entry.avgTokens.toFixed(entry.avgTokens >= 100 ? 0 : 1)}</td>
-                        </tr>
-                      `,
-                    )}
-                  </tbody>
-                </table>
-              `
-        }
-      </section>
 
-      <section class="react-provider-table-wrap">
-        <div class="react-provider-table-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <span>Provider Limit Windows</span>
-        </div>
-        ${
-          usageLimits.length === 0
-            ? html`<div class="callout warning">No live provider limit telemetry yet. OpenClaw will show limits when providers expose usage windows.</div>`
-            : html`
-                <table class="react-provider-table">
-                  <thead>
-                    <tr>
-                      <th>Provider</th>
-                      <th>Window</th>
-                      <th>Utilization</th>
-                      <th>Remaining</th>
-                      <th>Reset</th>
-                      <th>Telemetry</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${usageLimits.map((entry) => {
-                      const utilization = utilizationPercent(entry);
-                      const tone = utilizationTone(utilization);
-                      const windowName = entry.windowLabel?.trim() || windowLabel(entry.windowType);
-                      return html`
+        <div class="usage-detail-panel usage-detail-panel--${props.detailPanel}">
+          ${
+            props.detailPanel === "model-detail"
+              ? modelDetailRows.length === 0
+                ? html`<div class="callout warning">No model usage rows found for this range.</div>`
+                : html`
+                    <table class="react-provider-table usage-detail-table">
+                      <thead>
                         <tr>
-                          <td><span class="react-provider-badge" title=${entry.provider}>${entry.providerDisplayName}</span></td>
-                          <td><span class="react-window-pill">${windowName}</span></td>
-                          <td>
-                            <div class="react-util-cell">
-                              <div class="react-util-meta">
-                                <strong class="react-util-value ${tone}">${utilization !== null ? `${utilization.toFixed(0)}%` : "N/A"}</strong>
-                                <span>
-                                  ${
-                                    entry.limit > 0
-                                      ? `${formatTokens(entry.used)} / ${formatTokens(entry.limit)}`
-                                      : `${formatTokens(entry.used)} used`
-                                  }
-                                </span>
-                              </div>
-                              ${
-                                utilization !== null
-                                  ? html`<div class="react-util-track"><div class="${tone}" style="width:${utilization}%"></div></div>`
-                                  : nothing
-                              }
-                            </div>
-                          </td>
-                          <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
-                          <td>${formatResetTime(entry.resetAt)}</td>
-                          <td>
-                            <div class="react-telemetry">
-                              <span class="react-source-pill">${entry.source}</span>
-                              <span class="react-confidence-pill ${entry.confidence}">${entry.confidence}</span>
-                              <span class="react-freshness-pill">${Math.max(0, Math.floor(entry.freshnessSec / 60))}m</span>
-                            </div>
-                          </td>
+                          <th>Provider</th>
+                          <th>Model</th>
+                          <th>Requests</th>
+                          <th>Tokens</th>
+                          <th>Cost</th>
+                          <th>Avg Tokens / Request</th>
                         </tr>
-                      `;
-                    })}
-                  </tbody>
-                </table>
-              `
-        }
+                      </thead>
+                      <tbody>
+                        ${modelDetailRows.map(
+                          (entry) => html`
+                            <tr>
+                              <td><span class="react-provider-badge">${entry.provider}</span></td>
+                              <td><span class="react-model-label">${entry.model}</span></td>
+                              <td>${entry.requests.toLocaleString()}</td>
+                              <td>${formatTokens(entry.tokens)}</td>
+                              <td>${formatUsd(entry.cost)}</td>
+                              <td>${entry.avgTokens.toFixed(entry.avgTokens >= 100 ? 0 : 1)}</td>
+                            </tr>
+                          `,
+                        )}
+                      </tbody>
+                    </table>
+                  `
+              : usageLimits.length === 0
+                ? html`<div class="callout warning">No live provider limit telemetry yet. OpenClaw will show limits when providers expose usage windows.</div>`
+                : html`
+                    <table class="react-provider-table usage-detail-table">
+                      <thead>
+                        <tr>
+                          <th>Provider</th>
+                          <th>Window</th>
+                          <th>Utilization</th>
+                          <th>Remaining</th>
+                          <th>Reset</th>
+                          <th>Telemetry</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${usageLimits.map((entry) => {
+                          const utilization = utilizationPercent(entry);
+                          const tone = utilizationTone(utilization);
+                          const windowName = entry.windowLabel?.trim() || windowLabel(entry.windowType);
+                          return html`
+                            <tr>
+                              <td><span class="react-provider-badge" title=${entry.provider}>${entry.providerDisplayName}</span></td>
+                              <td><span class="react-window-pill">${windowName}</span></td>
+                              <td>
+                                <div class="react-util-cell">
+                                  <div class="react-util-meta">
+                                    <strong class="react-util-value ${tone}">${utilization !== null ? `${utilization.toFixed(0)}%` : "N/A"}</strong>
+                                    <span>
+                                      ${
+                                        entry.limit > 0
+                                          ? `${formatTokens(entry.used)} / ${formatTokens(entry.limit)}`
+                                          : `${formatTokens(entry.used)} used`
+                                      }
+                                    </span>
+                                  </div>
+                                  ${
+                                    utilization !== null
+                                      ? html`<div class="react-util-track"><div class="${tone}" style="width:${utilization}%"></div></div>`
+                                      : nothing
+                                  }
+                                </div>
+                              </td>
+                              <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
+                              <td>${formatResetTime(entry.resetAt)}</td>
+                              <td>
+                                <div class="react-telemetry">
+                                  <span class="react-source-pill">${entry.source}</span>
+                                  <span class="react-confidence-pill ${entry.confidence}">${entry.confidence}</span>
+                                  <span class="react-freshness-pill">${Math.max(0, Math.floor(entry.freshnessSec / 60))}m</span>
+                                </div>
+                              </td>
+                            </tr>
+                          `;
+                        })}
+                      </tbody>
+                    </table>
+                  `
+          }
+        </div>
       </section>
 
       ${

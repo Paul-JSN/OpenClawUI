@@ -270,6 +270,7 @@ export class OpenClawApp extends LitElement {
   @state() usageRangePreset: "today" | "7d" | "30d" | "custom" = "7d";
   @state() usageSourceDimension: "models" | "providers" | "tools" | "agents" | "channels" =
     "channels";
+  @state() usageDetailPanel: "model-detail" | "limit-windows" = "model-detail";
   @state() usageSelectedSessions: string[] = [];
   @state() usageSelectedDays: string[] = [];
   @state() usageSelectedHours: number[] = [];

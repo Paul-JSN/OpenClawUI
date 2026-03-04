@@ -27,6 +27,7 @@ export type UsageColumnId =
 export type TimeSeriesPoint = SessionUsageTimePoint;
 export type UsageAnalyticsMode = "cost" | "limits" | "activity";
 export type UsageSourceDimension = "models" | "providers" | "tools" | "agents" | "channels";
+export type UsageDetailPanel = "model-detail" | "limit-windows";
 export type UsageSectionId =
   | "filters"
   | "usageOverview"
@@ -44,6 +45,7 @@ export type UsageProps = {
   endDate: string;
   rangePreset: "today" | "7d" | "30d" | "custom";
   sourceDimension: UsageSourceDimension;
+  detailPanel: UsageDetailPanel;
   sessions: UsageSessionEntry[];
   sessionsLimitReached: boolean; // True if 1000 session cap was hit
   totals: UsageTotals | null;
@@ -83,6 +85,7 @@ export type UsageProps = {
   onEndDateChange: (date: string) => void;
   onRangePresetChange: (preset: "today" | "7d" | "30d" | "custom") => void;
   onSourceDimensionChange: (dimension: UsageSourceDimension) => void;
+  onDetailPanelChange: (panel: UsageDetailPanel) => void;
   onRefresh: () => void;
   onDisplayTimeZoneChange: (zone: DisplayTimeZone) => void;
   onToggleContextExpanded: () => void;
