@@ -406,6 +406,8 @@ type BuildUsageAnalyticsViewModelArgs = {
   overviewUsage24hResult?: SessionsUsageResult | null;
   overviewUsage24hCostSummary?: CostUsageSummary | null;
   overviewUsage24hStatus?: UsageSummary | null;
+  rangeStartDate?: string;
+  rangeEndDate?: string;
   rangeKey?: string;
 };
 
@@ -452,6 +454,37 @@ function cacheUsageVm(args: BuildUsageAnalyticsViewModelArgs, result: UsageAnaly
   if (usageVmCache.length > USAGE_VM_CACHE_MAX_ENTRIES) {
     usageVmCache.length = USAGE_VM_CACHE_MAX_ENTRIES;
   }
+}
+
+function parseYmdToUtcMs(value: string | undefined): number | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+  const [y, m, d] = value.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return null;
+  }
+  return Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+}
+
+function toUtcYmd(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function allDatesInRange(startDate?: string, endDate?: string): string[] {
+  const startMs = parseYmdToUtcMs(startDate);
+  const endMs = parseYmdToUtcMs(endDate);
+  if (startMs == null || endMs == null) {
+    return [];
+  }
+  const from = Math.min(startMs, endMs);
+  const to = Math.max(startMs, endMs);
+  const DAY = 24 * 60 * 60 * 1000;
+  const out: string[] = [];
+  for (let cursor = from; cursor <= to; cursor += DAY) {
+    out.push(toUtcYmd(cursor));
+  }
+  return out;
 }
 
 function normalizeProvider(value: string | undefined): string {
@@ -1241,6 +1274,10 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
   }
 
   const allTrendDates = new Set<string>([...dailyCost.keys(), ...dailySessions.keys()]);
+  for (const date of allDatesInRange(args.rangeStartDate, args.rangeEndDate)) {
+    allTrendDates.add(date);
+  }
+
   const trends = Array.from(allTrendDates)
     .toSorted()
     .map((date) => {

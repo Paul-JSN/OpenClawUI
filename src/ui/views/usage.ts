@@ -317,15 +317,6 @@ export function renderUsage(props: UsageProps) {
           >
             UTC
           </button>
-          <button
-            class="usage-source-tz__btn"
-            type="button"
-            ?disabled=${props.loading}
-            @click=${props.onRefresh}
-            title="Refresh usage data"
-          >
-            ${props.loading ? "Refreshing…" : "Refresh"}
-          </button>
         </div>
       </div>
 
@@ -480,15 +471,6 @@ export function renderUsage(props: UsageProps) {
       <section class="react-provider-table-wrap">
         <div class="react-provider-table-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <span>Provider / Model Detail</span>
-          <button
-            class="usage-source-tz__btn"
-            type="button"
-            ?disabled=${props.loading}
-            @click=${props.onRefresh}
-            title="Refresh limits and usage"
-          >
-            ${props.loading ? "Refreshing…" : "Refresh Limits"}
-          </button>
         </div>
         ${
           usageLimits.length === 0
@@ -568,7 +550,7 @@ export function renderUsage(props: UsageProps) {
       }
       <div class="muted" style="font-size: 11px;">
         Last updated: ${formatUpdatedAt(snapshotUpdatedAt)} · freshness: ${snapshotFreshnessMinutes}m · display timezone:
-        ${displayTimeZoneLabel(props.displayTimeZone)}
+        ${displayTimeZoneLabel(props.displayTimeZone)} · auto refresh: 20s (visible tab)
       </div>
     </section>
   `;

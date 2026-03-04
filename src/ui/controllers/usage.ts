@@ -54,6 +54,22 @@ const LEGACY_USAGE_DATE_PARAMS_MODE_RE = /unexpected property ['"]mode['"]/i;
 const LEGACY_USAGE_DATE_PARAMS_OFFSET_RE = /unexpected property ['"]utcoffset['"]/i;
 const LEGACY_USAGE_DATE_PARAMS_INVALID_RE = /invalid sessions\.usage params/i;
 
+const USAGE_RESPONSE_CACHE_STORAGE_KEY = "openclaw.control.usage.response-cache.v1";
+const USAGE_RESPONSE_CACHE_MAX_ENTRIES = 40;
+const USAGE_RESPONSE_CACHE_TTL_MS = 30 * 60 * 1000;
+
+type UsageResponseCacheEntry = {
+  key: string;
+  updatedAt: number;
+  sessionsRes: SessionsUsageResult | null;
+  costRes: CostUsageSummary | null;
+  statusRes: UsageSummary | null;
+};
+
+type UsageResponseCacheStore = {
+  entries: UsageResponseCacheEntry[];
+};
+
 let legacyUsageDateParamsCache: Set<string> | null = null;
 
 type PendingUsageReload = {
@@ -169,6 +185,91 @@ function normalizeGatewayCompatibilityKey(gatewayUrl?: string): string {
 
 function resolveGatewayCompatibilityKey(state: BaseUsageState): string {
   return normalizeGatewayCompatibilityKey(state.settings?.gatewayUrl);
+}
+
+function buildUsageResponseCacheKey(state: BaseUsageState, startDate: string, endDate: string): string {
+  return `${resolveGatewayCompatibilityKey(state)}::${startDate}::${endDate}`;
+}
+
+function parseUsageResponseCache(raw: string | null): UsageResponseCacheEntry[] {
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as UsageResponseCacheStore | null;
+    if (!parsed || !Array.isArray(parsed.entries)) {
+      return [];
+    }
+    const now = Date.now();
+    return parsed.entries.filter((entry): entry is UsageResponseCacheEntry => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+      if (typeof entry.key !== "string" || !entry.key.trim()) {
+        return false;
+      }
+      if (typeof entry.updatedAt !== "number" || !Number.isFinite(entry.updatedAt)) {
+        return false;
+      }
+      if (now - entry.updatedAt > USAGE_RESPONSE_CACHE_TTL_MS) {
+        return false;
+      }
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function loadUsageResponseCacheEntries(): UsageResponseCacheEntry[] {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return [];
+  }
+  return parseUsageResponseCache(storage.getItem(USAGE_RESPONSE_CACHE_STORAGE_KEY));
+}
+
+function persistUsageResponseCacheEntries(entries: UsageResponseCacheEntry[]) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.setItem(
+      USAGE_RESPONSE_CACHE_STORAGE_KEY,
+      JSON.stringify({ entries: entries.slice(0, USAGE_RESPONSE_CACHE_MAX_ENTRIES) }),
+    );
+  } catch {
+    // ignore quota/private-mode failures
+  }
+}
+
+function readUsageResponseCache(
+  state: BaseUsageState,
+  startDate: string,
+  endDate: string,
+): UsageResponseCacheEntry | null {
+  const key = buildUsageResponseCacheKey(state, startDate, endDate);
+  return loadUsageResponseCacheEntries().find((entry) => entry.key === key) ?? null;
+}
+
+function writeUsageResponseCache(
+  state: BaseUsageState,
+  startDate: string,
+  endDate: string,
+  data: { sessionsRes: SessionsUsageResult | null; costRes: CostUsageSummary | null; statusRes: UsageSummary | null },
+) {
+  const key = buildUsageResponseCacheKey(state, startDate, endDate);
+  const next: UsageResponseCacheEntry = {
+    key,
+    updatedAt: Date.now(),
+    sessionsRes: data.sessionsRes,
+    costRes: data.costRes,
+    statusRes: data.statusRes,
+  };
+
+  const existing = loadUsageResponseCacheEntries().filter((entry) => entry.key !== key);
+  persistUsageResponseCacheEntries([next, ...existing]);
 }
 
 function shouldSendLegacyDateInterpretation(state: BaseUsageState): boolean {
@@ -349,6 +450,20 @@ export async function loadUsage(
     state.usageEndDate = endDate;
   }
 
+  const cached = readUsageResponseCache(state, startDate, endDate);
+  if (cached) {
+    if (cached.sessionsRes) {
+      state.usageResult = cached.sessionsRes;
+    }
+    if (cached.costRes) {
+      state.usageCostSummary = cached.costRes;
+    }
+    if (cached.statusRes) {
+      state.usageStatus = cached.statusRes;
+    }
+    state.usageError = null;
+  }
+
   if (state.usageLoading) {
     usageReloadQueue.set(state, { startDate, endDate });
     return;
@@ -375,10 +490,15 @@ export async function loadUsage(
       if (statusRes) {
         state.usageStatus = statusRes;
       }
+      writeUsageResponseCache(state, startDate, endDate, {
+        sessionsRes,
+        costRes,
+        statusRes,
+      });
     }
   } catch (err) {
     const superseded = hasSupersedingPendingRange(state, startDate, endDate);
-    if (!superseded) {
+    if (!superseded && !cached) {
       state.usageError = toErrorMessage(err);
     }
   } finally {

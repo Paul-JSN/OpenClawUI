@@ -23,6 +23,8 @@ export function renderUsageTab(state: AppViewState) {
     usageResult: state.usageResult,
     usageCostSummary: state.usageCostSummary,
     usageStatus: state.usageStatus,
+    rangeStartDate: state.usageStartDate,
+    rangeEndDate: state.usageEndDate,
     rangeKey: `${state.usageRangePreset}|${state.usageStartDate}|${state.usageEndDate}|${state.usageDisplayTimeZone}`,
   });
 
