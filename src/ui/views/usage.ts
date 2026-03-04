@@ -134,6 +134,39 @@ function windowLabel(windowType: string): string {
   return windowType.replace(/^per-/, "");
 }
 
+function parseYmdUtc(ymd: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!match) {
+    return null;
+  }
+  const [, y, m, d] = match;
+  const value = Date.UTC(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0);
+  return Number.isFinite(value) ? value : null;
+}
+
+function expectedDayCount(startDate: string, endDate: string): number {
+  const startMs = parseYmdUtc(startDate);
+  const endMs = parseYmdUtc(endDate);
+  if (startMs == null || endMs == null) {
+    return 0;
+  }
+  const from = Math.min(startMs, endMs);
+  const to = Math.max(startMs, endMs);
+  const DAY = 24 * 60 * 60 * 1000;
+  return Math.floor((to - from) / DAY) + 1;
+}
+
+function usageDebugChecksEnabled(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage?.getItem("openclaw.control.usage.debug-checks") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function utilizationPercent(entry: { used: number; limit: number }): number | null {
   if (!Number.isFinite(entry.limit) || entry.limit <= 0) {
     return null;
@@ -282,6 +315,50 @@ export function renderUsage(props: UsageProps) {
     props.endDate,
     ...sourceStack.map((row) => `${row.key}:${Math.round(row.value)}:${row.pct.toFixed(1)}`),
   ].join("|");
+
+  const modelDetailRows = (props.aggregates?.byModel ?? [])
+    .map((row) => {
+      const provider = (row.provider ?? "unknown").trim() || "unknown";
+      const modelName = (row.model ?? "unknown").trim() || "unknown";
+      const requests = Math.max(0, row.count ?? 0);
+      const tokens = Math.max(0, row.totals.totalTokens ?? 0);
+      const cost = row.totals.totalCost ?? 0;
+      return {
+        provider,
+        model: modelName,
+        requests,
+        tokens,
+        cost,
+        avgTokens: requests > 0 ? tokens / requests : 0,
+      };
+    })
+    .toSorted((a, b) => b.tokens - a.tokens || b.cost - a.cost || a.provider.localeCompare(b.provider));
+
+  const usageTotalsTokens = Math.max(0, props.totals?.totalTokens ?? totalTokens);
+  const usageTotalsCost = props.totals?.totalCost ?? totalCost;
+  const byModelTokenSum = modelDetailRows.reduce((acc, row) => acc + row.tokens, 0);
+  const byModelCostSum = modelDetailRows.reduce((acc, row) => acc + row.cost, 0);
+  const byProviderTokenSum = (props.aggregates?.byProvider ?? []).reduce(
+    (acc, row) => acc + Math.max(0, row.totals.totalTokens ?? 0),
+    0,
+  );
+  const byProviderCostSum = (props.aggregates?.byProvider ?? []).reduce(
+    (acc, row) => acc + (row.totals.totalCost ?? 0),
+    0,
+  );
+  const trendTokenSum = model.trends.reduce((acc, row) => acc + Math.max(0, row.tokens), 0);
+  const rangeDayExpected = expectedDayCount(props.startDate, props.endDate);
+  const rangeDayActual = model.trends.length;
+  const totalsVsModelsOk = Math.abs(byModelTokenSum - usageTotalsTokens) <= 1;
+  const totalsVsProvidersOk =
+    (props.aggregates?.byProvider?.length ?? 0) === 0 || Math.abs(byProviderTokenSum - usageTotalsTokens) <= 1;
+  const costVsModelsOk = Math.abs(byModelCostSum - usageTotalsCost) <= 0.01;
+  const costVsProvidersOk =
+    (props.aggregates?.byProvider?.length ?? 0) === 0 || Math.abs(byProviderCostSum - usageTotalsCost) <= 0.01;
+  const trendVsTotalsOk =
+    rangeDayExpected <= 1 ||
+    Math.abs(trendTokenSum - usageTotalsTokens) <= Math.max(1, Math.round(usageTotalsTokens * 0.01));
+  const showDebugChecks = usageDebugChecksEnabled();
 
   return html`
     <section class="react-analytics-page">
@@ -473,6 +550,44 @@ export function renderUsage(props: UsageProps) {
           <span>Provider / Model Detail</span>
         </div>
         ${
+          modelDetailRows.length === 0
+            ? html`<div class="callout warning">No model usage rows found for this range.</div>`
+            : html`
+                <table class="react-provider-table">
+                  <thead>
+                    <tr>
+                      <th>Provider</th>
+                      <th>Model</th>
+                      <th>Requests</th>
+                      <th>Tokens</th>
+                      <th>Cost</th>
+                      <th>Avg Tokens / Request</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${modelDetailRows.map(
+                      (entry) => html`
+                        <tr>
+                          <td><span class="react-provider-badge">${entry.provider}</span></td>
+                          <td><span class="react-model-label">${entry.model}</span></td>
+                          <td>${entry.requests.toLocaleString()}</td>
+                          <td>${formatTokens(entry.tokens)}</td>
+                          <td>${formatUsd(entry.cost)}</td>
+                          <td>${entry.avgTokens.toFixed(entry.avgTokens >= 100 ? 0 : 1)}</td>
+                        </tr>
+                      `,
+                    )}
+                  </tbody>
+                </table>
+              `
+        }
+      </section>
+
+      <section class="react-provider-table-wrap">
+        <div class="react-provider-table-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span>Provider Limit Windows</span>
+        </div>
+        ${
           usageLimits.length === 0
             ? html`<div class="callout warning">No live provider limit telemetry yet. OpenClaw will show limits when providers expose usage windows.</div>`
             : html`
@@ -480,7 +595,6 @@ export function renderUsage(props: UsageProps) {
                   <thead>
                     <tr>
                       <th>Provider</th>
-                      <th>Model</th>
                       <th>Window</th>
                       <th>Utilization</th>
                       <th>Remaining</th>
@@ -489,52 +603,65 @@ export function renderUsage(props: UsageProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${usageLimits.map(
-                      (entry) => {
-                        const utilization = utilizationPercent(entry);
-                        const tone = utilizationTone(utilization);
-                        return html`
-                          <tr>
-                            <td><span class="react-provider-badge">${entry.provider}</span></td>
-                            <td><span class="react-model-label">${entry.model}</span></td>
-                            <td><span class="react-window-pill">${windowLabel(entry.windowType)}</span></td>
-                            <td>
-                              <div class="react-util-cell">
-                                <div class="react-util-meta">
-                                  <strong class="react-util-value ${tone}">${utilization !== null ? `${utilization.toFixed(0)}%` : "N/A"}</strong>
-                                  <span>
-                                    ${
-                                      entry.limit > 0
-                                        ? `${formatTokens(entry.used)} / ${formatTokens(entry.limit)}`
-                                        : `${formatTokens(entry.used)} used`
-                                    }
-                                  </span>
-                                </div>
-                                ${
-                                  utilization !== null
-                                    ? html`<div class="react-util-track"><div class="${tone}" style="width:${utilization}%"></div></div>`
-                                    : nothing
-                                }
+                    ${usageLimits.map((entry) => {
+                      const utilization = utilizationPercent(entry);
+                      const tone = utilizationTone(utilization);
+                      const windowName = entry.windowLabel?.trim() || windowLabel(entry.windowType);
+                      return html`
+                        <tr>
+                          <td><span class="react-provider-badge" title=${entry.provider}>${entry.providerDisplayName}</span></td>
+                          <td><span class="react-window-pill">${windowName}</span></td>
+                          <td>
+                            <div class="react-util-cell">
+                              <div class="react-util-meta">
+                                <strong class="react-util-value ${tone}">${utilization !== null ? `${utilization.toFixed(0)}%` : "N/A"}</strong>
+                                <span>
+                                  ${
+                                    entry.limit > 0
+                                      ? `${formatTokens(entry.used)} / ${formatTokens(entry.limit)}`
+                                      : `${formatTokens(entry.used)} used`
+                                  }
+                                </span>
                               </div>
-                            </td>
-                            <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
-                            <td>${formatResetTime(entry.resetAt)}</td>
-                            <td>
-                              <div class="react-telemetry">
-                                <span class="react-source-pill">${entry.source}</span>
-                                <span class="react-confidence-pill ${entry.confidence}">${entry.confidence}</span>
-                                <span class="react-freshness-pill">${Math.max(0, Math.floor(entry.freshnessSec / 60))}m</span>
-                              </div>
-                            </td>
-                          </tr>
-                        `;
-                      },
-                    )}
+                              ${
+                                utilization !== null
+                                  ? html`<div class="react-util-track"><div class="${tone}" style="width:${utilization}%"></div></div>`
+                                  : nothing
+                              }
+                            </div>
+                          </td>
+                          <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
+                          <td>${formatResetTime(entry.resetAt)}</td>
+                          <td>
+                            <div class="react-telemetry">
+                              <span class="react-source-pill">${entry.source}</span>
+                              <span class="react-confidence-pill ${entry.confidence}">${entry.confidence}</span>
+                              <span class="react-freshness-pill">${Math.max(0, Math.floor(entry.freshnessSec / 60))}m</span>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    })}
                   </tbody>
                 </table>
               `
         }
       </section>
+
+      ${
+        showDebugChecks
+          ? html`<div class="callout">
+              Tracking checks ·
+              totals↔byModel tokens: <strong>${totalsVsModelsOk ? "OK" : "MISMATCH"}</strong> (${formatTokens(byModelTokenSum)} / ${formatTokens(usageTotalsTokens)}) ·
+              totals↔byProvider tokens: <strong>${totalsVsProvidersOk ? "OK" : "MISMATCH"}</strong> (${formatTokens(byProviderTokenSum)} / ${formatTokens(usageTotalsTokens)}) ·
+              totals↔byModel cost: <strong>${costVsModelsOk ? "OK" : "MISMATCH"}</strong> (${formatUsd(byModelCostSum)} / ${formatUsd(usageTotalsCost)}) ·
+              totals↔byProvider cost: <strong>${costVsProvidersOk ? "OK" : "MISMATCH"}</strong> (${formatUsd(byProviderCostSum)} / ${formatUsd(usageTotalsCost)}) ·
+              trend coverage: <strong>${rangeDayActual}/${rangeDayExpected || rangeDayActual} days</strong> ·
+              trend↔totals tokens: <strong>${trendVsTotalsOk ? "OK" : "CHECK"}</strong> (${formatTokens(trendTokenSum)} / ${formatTokens(usageTotalsTokens)}) ·
+              sources: usage=sessions.usage, cost=usage.cost, limits=usage.status.
+            </div>`
+          : nothing
+      }
 
       ${props.loading ? html`<div class="callout">Loading usage analytics…</div>` : nothing}
       ${props.error ? html`<div class="callout warning">${props.error}</div>` : nothing}

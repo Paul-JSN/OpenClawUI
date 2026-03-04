@@ -91,17 +91,25 @@ export class OpenClawEchartHost extends LitElement {
       return;
     }
 
-    const normalizedOption = {
-      ...option,
-      animation: false,
-      animationDuration: 0,
-      animationDurationUpdate: 0,
-      animationEasing: "linear",
-      animationEasingUpdate: "linear",
-    } as EChartsOption;
+    const normalizedOption = { ...option } as EChartsOption;
+    if (normalizedOption.animation === undefined) {
+      normalizedOption.animation = true;
+    }
+    if (normalizedOption.animationDuration === undefined) {
+      normalizedOption.animationDuration = 260;
+    }
+    if (normalizedOption.animationDurationUpdate === undefined) {
+      normalizedOption.animationDurationUpdate = 220;
+    }
+    if (normalizedOption.animationEasing === undefined) {
+      normalizedOption.animationEasing = "quarticOut";
+    }
+    if (normalizedOption.animationEasingUpdate === undefined) {
+      normalizedOption.animationEasingUpdate = "cubicOut";
+    }
 
     this.chart.setOption(normalizedOption, {
-      notMerge: true,
+      notMerge: false,
       lazyUpdate: true,
       silent: true,
     });

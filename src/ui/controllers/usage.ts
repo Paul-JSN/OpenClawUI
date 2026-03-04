@@ -78,6 +78,8 @@ type PendingUsageReload = {
 };
 
 const usageReloadQueue = new WeakMap<UsageState, PendingUsageReload | null>();
+const usageWarmCacheLastRunByGateway = new Map<string, number>();
+const USAGE_WARM_CACHE_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 function isIsoYmd(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -270,6 +272,17 @@ function writeUsageResponseCache(
 
   const existing = loadUsageResponseCacheEntries().filter((entry) => entry.key !== key);
   persistUsageResponseCacheEntries([next, ...existing]);
+}
+
+function shouldWarmUsageCache(state: BaseUsageState): boolean {
+  const key = resolveGatewayCompatibilityKey(state);
+  const now = Date.now();
+  const lastRun = usageWarmCacheLastRunByGateway.get(key) ?? 0;
+  if (now - lastRun < USAGE_WARM_CACHE_MIN_INTERVAL_MS) {
+    return false;
+  }
+  usageWarmCacheLastRunByGateway.set(key, now);
+  return true;
 }
 
 function shouldSendLegacyDateInterpretation(state: BaseUsageState): boolean {
@@ -507,6 +520,37 @@ export async function loadUsage(
     if (pending && (pending.startDate !== startDate || pending.endDate !== endDate)) {
       usageReloadQueue.set(state, null);
       void loadUsage(state, pending);
+    }
+  }
+}
+
+export async function warmUsageRangeCache(state: BaseUsageState) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  if (!shouldWarmUsageCache(state)) {
+    return;
+  }
+
+  const today = localCurrentDayUtcCoverageRange();
+  const ranges = [
+    { startDate: today.startDate, endDate: today.endDate },
+    lastNUtcDaysRange(7),
+    lastNUtcDaysRange(30),
+  ];
+
+  const seen = new Set<string>();
+  for (const range of ranges) {
+    const cacheKey = `${range.startDate}:${range.endDate}`;
+    if (seen.has(cacheKey)) {
+      continue;
+    }
+    seen.add(cacheKey);
+    try {
+      const data = await requestUsageData(state, range.startDate, range.endDate);
+      writeUsageResponseCache(state, range.startDate, range.endDate, data);
+    } catch {
+      // best-effort prewarm only
     }
   }
 }
