@@ -167,6 +167,7 @@ export type AppViewState = {
   sessionsIncludeGlobal: boolean;
   sessionsIncludeUnknown: boolean;
   usageLoading: boolean;
+  usageUiReady: boolean;
   usageResult: SessionsUsageResult | null;
   usageCostSummary: CostUsageSummary | null;
   usageStatus: UsageSummary | null;

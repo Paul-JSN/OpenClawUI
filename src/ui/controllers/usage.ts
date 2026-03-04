@@ -91,6 +91,11 @@ function normalizeUsageDateRange(startDate: string, endDate: string): {
   };
 }
 
+function hasSupersedingPendingRange(state: UsageState, startDate: string, endDate: string): boolean {
+  const pending = usageReloadQueue.get(state);
+  return Boolean(pending && (pending.startDate !== startDate || pending.endDate !== endDate));
+}
+
 function getLocalStorage(): Storage | null {
   if (typeof window !== "undefined" && window.localStorage) {
     return window.localStorage;
@@ -359,17 +364,23 @@ export async function loadUsage(
   state.usageError = null;
   try {
     const { sessionsRes, costRes, statusRes } = await requestUsageData(state, startDate, endDate);
-    if (sessionsRes) {
-      state.usageResult = sessionsRes;
-    }
-    if (costRes) {
-      state.usageCostSummary = costRes;
-    }
-    if (statusRes) {
-      state.usageStatus = statusRes;
+    const superseded = hasSupersedingPendingRange(state, startDate, endDate);
+    if (!superseded) {
+      if (sessionsRes) {
+        state.usageResult = sessionsRes;
+      }
+      if (costRes) {
+        state.usageCostSummary = costRes;
+      }
+      if (statusRes) {
+        state.usageStatus = statusRes;
+      }
     }
   } catch (err) {
-    state.usageError = toErrorMessage(err);
+    const superseded = hasSupersedingPendingRange(state, startDate, endDate);
+    if (!superseded) {
+      state.usageError = toErrorMessage(err);
+    }
   } finally {
     state.usageLoading = false;
     const pending = usageReloadQueue.get(state);

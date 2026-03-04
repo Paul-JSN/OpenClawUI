@@ -12,7 +12,7 @@ const debouncedLoadUsage = (state: UsageState) => {
   if (usageDateDebounceTimeout) {
     clearTimeout(usageDateDebounceTimeout);
   }
-  usageDateDebounceTimeout = window.setTimeout(() => void loadUsage(state), 400);
+  usageDateDebounceTimeout = window.setTimeout(() => void loadUsage(state), 140);
 };
 
 export function renderUsageTab(state: AppViewState) {

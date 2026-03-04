@@ -1164,18 +1164,6 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
       continue;
     }
 
-    usageLimits.push({
-      provider,
-      model,
-      windowType: "none",
-      limit: 0,
-      used: Math.max(0, modelUsage.totals.totalTokens),
-      remaining: 0,
-      resetAt: null,
-      source: "estimate",
-      freshnessSec: freshnessFromUpdatedAt(usageResult?.updatedAt ?? latestUpdatedAt, now),
-      confidence: "low",
-    });
   }
 
   for (const providerStatus of statusSummary?.providers ?? []) {
@@ -1277,7 +1265,7 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
     providers.add(normalizeProvider(provider.provider));
   }
 
-  const totals = usageResult?.totals ?? costSummary?.totals ?? EMPTY_TOTALS;
+  const totals = costSummary?.totals ?? usageResult?.totals ?? EMPTY_TOTALS;
   const providerSummary = summarizeProvidersFromSessions(
     usageResult?.sessions ?? [],
     usageResult?.aggregates.byProvider ?? [],

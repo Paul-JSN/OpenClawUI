@@ -249,6 +249,7 @@ export class OpenClawApp extends LitElement {
   @state() sessionsIncludeUnknown = false;
 
   @state() usageLoading = false;
+  @state() usageUiReady = false;
   @state() usageResult: import("./types.js").SessionsUsageResult | null = null;
   @state() usageCostSummary: import("./types.js").CostUsageSummary | null = null;
   @state() usageStatus: import("./types.js").UsageSummary | null = null;

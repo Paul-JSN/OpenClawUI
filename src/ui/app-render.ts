@@ -2,7 +2,6 @@
 import { parseAgentSessionKey } from "../../../src/routing/session-key.js";
 import { t } from "../i18n/index.ts";
 import { refreshChatAvatar } from "./app-chat.ts";
-import { renderUsageTab } from "./app-render-usage-tab.ts";
 import { renderChatControls, renderTab, renderThemeToggle } from "./app-render.helpers.ts";
 import type { AppViewState } from "./app-view-state.ts";
 import { loadAgentFileContent, loadAgentFiles, saveAgentFile } from "./controllers/agent-files.ts";
@@ -94,6 +93,56 @@ const CRON_TIMEZONE_SUGGESTIONS = [
   "Europe/Berlin",
   "Asia/Tokyo",
 ];
+
+type UsageTabRenderer = (state: AppViewState) => ReturnType<typeof html>;
+
+let usageTabRenderer: UsageTabRenderer | null = null;
+let usageTabRendererPromise: Promise<void> | null = null;
+let usageTabRendererError: string | null = null;
+
+function ensureUsageTabRenderer(state: AppViewState) {
+  if (usageTabRenderer || usageTabRendererPromise) {
+    return;
+  }
+  usageTabRendererPromise = import("./app-render-usage-tab.ts")
+    .then((mod) => {
+      usageTabRenderer = mod.renderUsageTab;
+      usageTabRendererError = null;
+      state.usageUiReady = true;
+    })
+    .catch((err: unknown) => {
+      usageTabRenderer = null;
+      usageTabRendererError = err instanceof Error ? err.message : String(err);
+      state.usageUiReady = false;
+    })
+    .finally(() => {
+      usageTabRendererPromise = null;
+    });
+}
+
+function renderUsageTabLazy(state: AppViewState) {
+  if (state.tab !== "usage") {
+    return nothing;
+  }
+  if (usageTabRenderer) {
+    if (!state.usageUiReady) {
+      state.usageUiReady = true;
+    }
+    return usageTabRenderer(state);
+  }
+
+  ensureUsageTabRenderer(state);
+  return html`
+    <section class="react-analytics-page">
+      <div class="callout">Loading usage UI module…</div>
+      ${
+        usageTabRendererError
+          ? html`<div class="callout warning">Failed to load Usage UI module: ${usageTabRendererError}</div>`
+          : nothing
+      }
+    </section>
+  `;
+}
 
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
@@ -492,7 +541,7 @@ export function renderApp(state: AppViewState) {
             : nothing
         }
 
-        ${renderUsageTab(state)}
+        ${renderUsageTabLazy(state)}
 
         ${
           state.tab === "cron"

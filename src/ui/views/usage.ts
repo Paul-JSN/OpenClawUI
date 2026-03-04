@@ -37,6 +37,37 @@ const RANGE_PRESETS: Array<{ key: UsageProps["rangePreset"]; label: string }> = 
   { key: "custom", label: "Custom" },
 ];
 
+type TokenTrendOption = ReturnType<typeof buildReactTokenUsageBarOption>;
+
+const tokenTrendOptionCache = new WeakMap<
+  UsageProps["analyticsView"],
+  { local: TokenTrendOption | null; utc: TokenTrendOption | null }
+>();
+
+function getTokenTrendOption(
+  model: UsageProps["analyticsView"],
+  zone: UsageProps["displayTimeZone"],
+): TokenTrendOption | null {
+  if (!model.trends.length) {
+    return null;
+  }
+  let cache = tokenTrendOptionCache.get(model);
+  if (!cache) {
+    cache = { local: null, utc: null };
+    tokenTrendOptionCache.set(model, cache);
+  }
+  if (zone === "local") {
+    if (!cache.local) {
+      cache.local = buildReactTokenUsageBarOption(model, "local");
+    }
+    return cache.local;
+  }
+  if (!cache.utc) {
+    cache.utc = buildReactTokenUsageBarOption(model, "utc");
+  }
+  return cache.utc;
+}
+
 function formatTokens(value: number): string {
   if (!Number.isFinite(value)) {
     return "0";
@@ -63,6 +94,22 @@ function formatResetTime(resetAt: string | null): string {
     return "--";
   }
   return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatUpdatedAt(updatedAt: number | null): string {
+  if (!updatedAt || !Number.isFinite(updatedAt)) {
+    return "--";
+  }
+  const date = new Date(updatedAt);
+  if (!Number.isFinite(date.getTime())) {
+    return "--";
+  }
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -196,16 +243,15 @@ export function renderUsage(props: UsageProps) {
   const model = props.analyticsView;
   const usageLimits = model.usageLimits;
   const providerApiLimitRows = usageLimits.filter((entry) => entry.source === "provider_api").length;
-  const estimatedLimitRows = usageLimits.filter((entry) => entry.source !== "provider_api").length;
   const totalTokens = model.snapshot.totalTokens;
   const totalCost = model.snapshot.totalCost;
   const messageCount = Math.max(0, model.snapshot.messageCount);
   const avgTokensPerMessage = messageCount > 0 ? totalTokens / messageCount : 0;
   const avgCostPerMessage = messageCount > 0 ? totalCost / messageCount : 0;
+  const snapshotUpdatedAt = model.snapshot.updatedAt;
+  const snapshotFreshnessMinutes = Math.max(0, Math.floor(model.snapshot.freshnessSec / 60));
 
-  const tokenTrendOption = model.trends.length
-    ? buildReactTokenUsageBarOption(model, props.displayTimeZone)
-    : null;
+  const tokenTrendOption = getTokenTrendOption(model, props.displayTimeZone);
 
   const tokenDelta = trendPercent(model.trends.map((point) => point.tokens));
   const costDelta = trendPercent(model.trends.map((point) => point.cost));
@@ -271,6 +317,15 @@ export function renderUsage(props: UsageProps) {
           >
             UTC
           </button>
+          <button
+            class="usage-source-tz__btn"
+            type="button"
+            ?disabled=${props.loading}
+            @click=${props.onRefresh}
+            title="Refresh usage data"
+          >
+            ${props.loading ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
       </div>
 
@@ -280,11 +335,11 @@ export function renderUsage(props: UsageProps) {
               <div class="usage-source-custom-range usage-source-custom-range--global">
                 <label>
                   <span>Start</span>
-                  <input type="date" .value=${props.startDate} @change=${(e: Event) => props.onStartDateChange((e.target as HTMLInputElement).value)} />
+                  <input type="date" .value=${props.startDate} @input=${(e: Event) => props.onStartDateChange((e.target as HTMLInputElement).value)} />
                 </label>
                 <label>
                   <span>End</span>
-                  <input type="date" .value=${props.endDate} @change=${(e: Event) => props.onEndDateChange((e.target as HTMLInputElement).value)} />
+                  <input type="date" .value=${props.endDate} @input=${(e: Event) => props.onEndDateChange((e.target as HTMLInputElement).value)} />
                 </label>
               </div>
             `
@@ -423,10 +478,21 @@ export function renderUsage(props: UsageProps) {
       </div>
 
       <section class="react-provider-table-wrap">
-        <div class="react-provider-table-title">Provider / Model Detail</div>
+        <div class="react-provider-table-title" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span>Provider / Model Detail</span>
+          <button
+            class="usage-source-tz__btn"
+            type="button"
+            ?disabled=${props.loading}
+            @click=${props.onRefresh}
+            title="Refresh limits and usage"
+          >
+            ${props.loading ? "Refreshing…" : "Refresh Limits"}
+          </button>
+        </div>
         ${
           usageLimits.length === 0
-            ? html`<div class="callout warning">No provider data.</div>`
+            ? html`<div class="callout warning">No live provider limit telemetry yet. OpenClaw will show limits when providers expose usage windows.</div>`
             : html`
                 <table class="react-provider-table">
                   <thead>
@@ -496,13 +562,14 @@ export function renderUsage(props: UsageProps) {
           : nothing
       }
       ${
-        estimatedLimitRows > 0
-          ? html`<div class="callout">
-              Limits source: provider API ${providerApiLimitRows} · estimated ${estimatedLimitRows}. Estimated rows are inferred from usage history and may lag or drift.
-            </div>`
-          : nothing
+        providerApiLimitRows > 0
+          ? html`<div class="callout">Live provider limits detected: ${providerApiLimitRows} rows (source = provider API).</div>`
+          : html`<div class="callout">Limit prediction is disabled. Only provider-reported limit windows are shown.</div>`
       }
-      <div class="muted" style="font-size: 11px;">Display timezone: ${displayTimeZoneLabel(props.displayTimeZone)}</div>
+      <div class="muted" style="font-size: 11px;">
+        Last updated: ${formatUpdatedAt(snapshotUpdatedAt)} · freshness: ${snapshotFreshnessMinutes}m · display timezone:
+        ${displayTimeZoneLabel(props.displayTimeZone)}
+      </div>
     </section>
   `;
 }
