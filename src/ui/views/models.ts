@@ -46,6 +46,18 @@ type AuthRow = {
   mode: string;
 };
 
+type WizardPreset = {
+  key: string;
+  label: string;
+  providerId?: string;
+  baseUrl?: string;
+  api?: string;
+  auth?: string;
+  modelId?: string;
+  modelName?: string;
+  alias?: string;
+};
+
 const MODEL_API_OPTIONS = [
   "openai-responses",
   "openai-completions",
@@ -63,6 +75,40 @@ const MODEL_ID_RE = /^\S+$/;
 const QUALIFIED_MODEL_ID_RE = /^[^\s/]+\/\S+$/;
 const ALIAS_RE = /^[a-zA-Z][a-zA-Z0-9._-]*$/;
 const AUTH_PROFILE_REQUIRED_MODES = new Set(["oauth", "token", "aws-sdk"]);
+const WIZARD_PRESETS: WizardPreset[] = [
+  {
+    key: "custom",
+    label: "Custom",
+  },
+  {
+    key: "openai-compatible",
+    label: "OpenAI compatible",
+    api: "openai-responses",
+    auth: "api-key",
+    baseUrl: "https://api.openai.com/v1",
+  },
+  {
+    key: "qwen-portal",
+    label: "Qwen Portal",
+    providerId: "qwen-portal",
+    api: "openai-completions",
+    auth: "oauth",
+    baseUrl: "https://portal.qwen.ai/v1",
+    modelId: "coder-model",
+    modelName: "Qwen Coder",
+    alias: "qwen",
+  },
+  {
+    key: "ollama-local",
+    label: "Ollama (local)",
+    providerId: "ollama-local",
+    api: "ollama",
+    auth: "token",
+    baseUrl: "http://127.0.0.1:11434",
+    modelId: "llama3.1:8b",
+    modelName: "Llama 3.1 8B",
+  },
+];
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -183,6 +229,35 @@ function createProviderObject(params: {
   return next;
 }
 
+function upsertModelRows(
+  current: ModelRow[],
+  modelId: string,
+  modelName: string,
+  contextWindow: number | null,
+  maxTokens: number | null,
+): Record<string, unknown>[] {
+  const index = current.findIndex((entry) => entry.id.toLowerCase() === modelId.toLowerCase());
+  const existing = index >= 0 ? current[index] : null;
+  const nextModel: Record<string, unknown> = {
+    ...(existing?.raw ?? {}),
+    id: modelId,
+    name: modelName,
+  };
+  if (contextWindow !== null) {
+    nextModel.contextWindow = contextWindow;
+  }
+  if (maxTokens !== null) {
+    nextModel.maxTokens = maxTokens;
+  }
+  const nextModelsRaw = current.map((entry) => ({ ...entry.raw }));
+  if (index >= 0) {
+    nextModelsRaw[index] = nextModel;
+  } else {
+    nextModelsRaw.push(nextModel);
+  }
+  return nextModelsRaw;
+}
+
 function normalizePositiveInteger(raw: FormDataEntryValue | null): number | null {
   if (typeof raw !== "string") {
     return null;
@@ -286,6 +361,163 @@ export function renderModels(props: ModelsProps) {
           </div>
         </article>
       </div>
+
+      <section class="card">
+        <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
+          <div>
+            <div class="card-title">Quick Setup Wizard</div>
+            <div class="card-sub">Add provider + model + alias in one action.</div>
+          </div>
+        </div>
+        <form
+          class="models-wizard-form"
+          @submit=${(event: SubmitEvent) => {
+            event.preventDefault();
+            const form = event.currentTarget as HTMLFormElement;
+            const data = new FormData(form);
+            const providerId = asString(data.get("providerId"));
+            const baseUrl = asString(data.get("baseUrl"));
+            const api = asString(data.get("api"));
+            const auth = asString(data.get("auth"));
+            const apiKey = asString(data.get("apiKey"));
+            const modelId = asString(data.get("modelId"));
+            const modelName = asString(data.get("modelName"));
+            const alias = asString(data.get("alias"));
+            if (!providerId || !baseUrl || !modelId || !modelName) {
+              return;
+            }
+            if (!isProviderIdValid(providerId)) {
+              alert("Provider id can use letters/numbers and . _ - only (no spaces).");
+              return;
+            }
+            if (!/^https?:\/\//i.test(baseUrl)) {
+              alert("Base URL should start with http:// or https://");
+              return;
+            }
+            if (!isModelIdValid(modelId)) {
+              alert("Model id cannot contain spaces.");
+              return;
+            }
+            const qualifiedModelId = `${providerId}/${modelId}`;
+            if (alias) {
+              if (!isAliasValid(alias)) {
+                alert("Alias should start with a letter and contain only letters/numbers/._-.");
+                return;
+              }
+              const conflict = aliasRows.find(
+                (row) =>
+                  row.modelId !== qualifiedModelId && row.alias.toLowerCase() === alias.toLowerCase(),
+              );
+              if (conflict) {
+                alert(`Alias ${alias} is already used by ${conflict.modelId}.`);
+                return;
+              }
+            }
+
+            const provider = providerById.get(providerId);
+            const nextProvider = createProviderObject({
+              current: provider?.raw ?? null,
+              baseUrl,
+              api,
+              auth,
+              apiKey,
+            });
+            const contextWindow = normalizePositiveInteger(data.get("contextWindow"));
+            const maxTokens = normalizePositiveInteger(data.get("maxTokens"));
+            nextProvider.models = upsertModelRows(
+              provider?.modelRows ?? [],
+              modelId,
+              modelName,
+              contextWindow,
+              maxTokens,
+            );
+            props.onPatch(["models", "providers", providerId], nextProvider);
+
+            if (alias) {
+              props.onPatch(["agents", "defaults", "models", qualifiedModelId, "alias"], alias);
+            }
+
+            const normalizedAuth = normalizeAuthMode(auth);
+            if (
+              AUTH_PROFILE_REQUIRED_MODES.has(normalizedAuth) &&
+              (authByProvider.get(providerId) ?? 0) === 0
+            ) {
+              props.onPatch(["auth", "profiles", `${providerId}:default`], {
+                provider: providerId,
+                mode: normalizedAuth,
+              });
+            }
+            form.reset();
+          }}
+        >
+          <select
+            name="preset"
+            @change=${(event: Event) => {
+              const select = event.currentTarget as HTMLSelectElement;
+              const form = select.form;
+              if (!form) {
+                return;
+              }
+              const preset = WIZARD_PRESETS.find((entry) => entry.key === select.value);
+              if (!preset) {
+                return;
+              }
+              const setInputValue = (name: string, value?: string) => {
+                const element = form.elements.namedItem(name);
+                if (!element) {
+                  return;
+                }
+                if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
+                  element.value = value ?? "";
+                }
+              };
+              setInputValue("providerId", preset.providerId);
+              setInputValue("baseUrl", preset.baseUrl);
+              setInputValue("api", preset.api);
+              setInputValue("auth", preset.auth);
+              setInputValue("modelId", preset.modelId);
+              setInputValue("modelName", preset.modelName);
+              setInputValue("alias", preset.alias);
+            }}
+          >
+            ${WIZARD_PRESETS.map((preset) => html`<option value=${preset.key}>${preset.label}</option>`)}
+          </select>
+          <input
+            name="providerId"
+            placeholder="provider id"
+            pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
+            title="letters/numbers + . _ - only"
+            required
+          />
+          <input name="baseUrl" placeholder="base URL" type="url" required />
+          <select name="api">
+            <option value="">api</option>
+            ${MODEL_API_OPTIONS.map((api) => html`<option value=${api}>${api}</option>`)}
+          </select>
+          <select name="auth">
+            <option value="">auth</option>
+            ${AUTH_MODE_OPTIONS.map((mode) => html`<option value=${mode}>${mode}</option>`)}
+          </select>
+          <input name="apiKey" placeholder="api key/env ref (optional)" />
+          <input
+            name="modelId"
+            placeholder="model id"
+            pattern="\\S+"
+            title="no spaces"
+            required
+          />
+          <input name="modelName" placeholder="display name" required />
+          <input name="contextWindow" type="number" min="1" step="1" placeholder="context" />
+          <input name="maxTokens" type="number" min="1" step="1" placeholder="max tokens" />
+          <input
+            name="alias"
+            placeholder="alias (optional)"
+            pattern="[A-Za-z][A-Za-z0-9._-]*"
+            title="start with letter; use letters/numbers/._-"
+          />
+          <button class="btn" type="submit">Run Wizard</button>
+        </form>
+      </section>
 
       <section class="card">
         <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
@@ -419,30 +651,15 @@ export function renderModels(props: ModelsProps) {
                               alert("Model id cannot contain spaces.");
                               return;
                             }
-                            const currentModels = [...provider.modelRows];
-                            const index = currentModels.findIndex(
-                              (entry) => entry.id.toLowerCase() === modelId.toLowerCase(),
-                            );
-                            const existing = index >= 0 ? currentModels[index] : null;
                             const contextWindow = normalizePositiveInteger(data.get("contextWindow"));
                             const maxTokens = normalizePositiveInteger(data.get("maxTokens"));
-                            const nextModel: Record<string, unknown> = {
-                              ...(existing?.raw ?? {}),
-                              id: modelId,
-                              name: modelName,
-                            };
-                            if (contextWindow !== null) {
-                              nextModel.contextWindow = contextWindow;
-                            }
-                            if (maxTokens !== null) {
-                              nextModel.maxTokens = maxTokens;
-                            }
-                            const nextModelsRaw = currentModels.map((entry) => ({ ...entry.raw }));
-                            if (index >= 0) {
-                              nextModelsRaw[index] = nextModel;
-                            } else {
-                              nextModelsRaw.push(nextModel);
-                            }
+                            const nextModelsRaw = upsertModelRows(
+                              provider.modelRows,
+                              modelId,
+                              modelName,
+                              contextWindow,
+                              maxTokens,
+                            );
                             props.onPatch(["models", "providers", provider.id, "models"], nextModelsRaw);
                             form.reset();
                           }}

@@ -4469,6 +4469,19 @@
   gap: 16px;
 }
 
+.models-wizard-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.models-wizard-form input,
+.models-wizard-form select {
+  min-width: 140px;
+}
+
 .models-provider-card {
   border: 1px solid var(--border);
   background: var(--secondary);
