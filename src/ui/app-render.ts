@@ -120,6 +120,48 @@ function ensureUsageTabRenderer(state: AppViewState) {
     });
 }
 
+let modelsTabRendererPromise: Promise<void> | null = null;
+let modelsTabRendererError: string | null = null;
+let modelsTabRenderer: typeof import("./app-render-models-tab.ts").renderModelsTab | null = null;
+
+function ensureModelsTabRenderer(state: AppViewState) {
+  if (modelsTabRenderer || modelsTabRendererPromise) {
+    return;
+  }
+  modelsTabRendererPromise = import("./app-render-models-tab.ts")
+    .then((mod) => {
+      modelsTabRenderer = mod.renderModelsTab;
+      modelsTabRendererError = null;
+    })
+    .catch((err: unknown) => {
+      modelsTabRenderer = null;
+      modelsTabRendererError = err instanceof Error ? err.message : String(err);
+    })
+    .finally(() => {
+      modelsTabRendererPromise = null;
+    });
+}
+
+function renderModelsTabLazy(state: AppViewState) {
+  if (state.tab !== "models") {
+    return nothing;
+  }
+  if (modelsTabRenderer) {
+    return modelsTabRenderer(state);
+  }
+  ensureModelsTabRenderer(state);
+  return html`
+    <section class="models-page">
+      <div class="callout">Loading Models UI module…</div>
+      ${
+        modelsTabRendererError
+          ? html`<div class="callout warning">Failed to load Models UI module: ${modelsTabRendererError}</div>`
+          : nothing
+      }
+    </section>
+  `;
+}
+
 function renderUsageTabLazy(state: AppViewState) {
   if (state.tab !== "usage") {
     return nothing;
@@ -542,6 +584,7 @@ export function renderApp(state: AppViewState) {
         }
 
         ${renderUsageTabLazy(state)}
+        ${renderModelsTabLazy(state)}
 
         ${
           state.tab === "cron"

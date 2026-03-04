@@ -255,6 +255,16 @@ export type AppViewState = {
   skillEdits: Record<string, string>;
   skillMessages: Record<string, SkillMessage>;
   skillsBusyKey: string | null;
+  modelsLoading: boolean;
+  modelsError: string | null;
+  modelsProviders: Record<string, import("./controllers/models.ts").ProviderEntry>;
+  modelsAliases: import("./controllers/models.ts").AliasEntry[];
+  modelsDefaults: import("./controllers/models.ts").DefaultsEntry;
+  modelsAgents: import("./controllers/models.ts").AgentEntry[];
+  modelsConfigHash: string | null;
+  modelsDeletePlan: import("./controllers/models.ts").ModelsDeletePlan | null;
+  modelsDeleteBusy: boolean;
+  modelsDeleteError: string | null;
   debugLoading: boolean;
   debugStatus: StatusSummary | null;
   debugHealth: HealthSnapshot | null;
@@ -323,6 +333,11 @@ export type AppViewState = {
   handleLoadNodes: () => Promise<void>;
   handleLoadPresence: () => Promise<void>;
   handleLoadSkills: () => Promise<void>;
+  handleLoadModels: () => Promise<void>;
+  handleModelsDeleteModel: (modelKey: string) => Promise<void>;
+  handleModelsDeleteProvider: (providerId: string) => Promise<void>;
+  handleModelsDeleteApply: () => Promise<void>;
+  handleModelsDeleteCancel: () => void;
   handleLoadDebug: () => Promise<void>;
   handleLoadLogs: () => Promise<void>;
   handleDebugCall: () => Promise<void>;

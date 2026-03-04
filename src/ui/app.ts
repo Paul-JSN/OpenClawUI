@@ -58,6 +58,13 @@ import type { DevicePairingList } from "./controllers/devices.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exec-approvals.ts";
 import type { SkillMessage } from "./controllers/skills.ts";
+import {
+  applyDeletePlan,
+  cancelDeletePlan,
+  loadModels,
+  startDeleteModel,
+  startDeleteProvider,
+} from "./controllers/models.ts";
 import type { GatewayBrowserClient, GatewayHelloOk } from "./gateway.ts";
 import type { Tab } from "./navigation.ts";
 import { loadSettings, type UiSettings } from "./storage.ts";
@@ -369,6 +376,21 @@ export class OpenClawApp extends LitElement {
   @state() skillsBusyKey: string | null = null;
   @state() skillMessages: Record<string, SkillMessage> = {};
 
+  @state() modelsLoading = false;
+  @state() modelsError: string | null = null;
+  @state() modelsProviders: Record<string, import("./controllers/models.ts").ProviderEntry> = {};
+  @state() modelsAliases: import("./controllers/models.ts").AliasEntry[] = [];
+  @state() modelsDefaults: import("./controllers/models.ts").DefaultsEntry = {
+    fallbacks: [],
+    imageModel: { fallbacks: [] },
+    pdfModel: { fallbacks: [] },
+  };
+  @state() modelsAgents: import("./controllers/models.ts").AgentEntry[] = [];
+  @state() modelsConfigHash: string | null = null;
+  @state() modelsDeletePlan: import("./controllers/models.ts").ModelsDeletePlan | null = null;
+  @state() modelsDeleteBusy = false;
+  @state() modelsDeleteError: string | null = null;
+
   @state() debugLoading = false;
   @state() debugStatus: StatusSummary | null = null;
   @state() debugHealth: HealthSnapshot | null = null;
@@ -499,6 +521,26 @@ export class OpenClawApp extends LitElement {
 
   async loadCron() {
     await loadCronInternal(this as unknown as Parameters<typeof loadCronInternal>[0]);
+  }
+
+  async handleLoadModels() {
+    await loadModels(this);
+  }
+
+  async handleModelsDeleteModel(modelKey: string) {
+    await startDeleteModel(this, modelKey);
+  }
+
+  async handleModelsDeleteProvider(providerId: string) {
+    await startDeleteProvider(this, providerId);
+  }
+
+  async handleModelsDeleteApply() {
+    await applyDeletePlan(this);
+  }
+
+  handleModelsDeleteCancel() {
+    cancelDeletePlan(this);
   }
 
   async handleAbortChat() {
