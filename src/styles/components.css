@@ -4341,9 +4341,56 @@
   font-size: 11px;
 }
 
+.usage-source-text {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: usage-source-text-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.usage-source-text--headline {
+  animation-duration: 0.35s;
+}
+
+.usage-source-text--cost {
+  animation-delay: 80ms;
+}
+
+.usage-source-card__meta .usage-source-text:nth-child(1) {
+  animation-delay: 20ms;
+}
+
+.usage-source-card__meta .usage-source-text:nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.usage-source-card__meta .usage-source-text:nth-child(3) {
+  animation-delay: 80ms;
+}
+
 .usage-source-row {
-  animation: usage-source-row-in 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: usage-source-row-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--usage-row-delay, 0ms);
+}
+
+.usage-source-row .react-cost-breakdown__meta > span,
+.usage-source-row .react-cost-breakdown__meta > b,
+.usage-source-row .react-cost-breakdown__meta > em {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: usage-source-text-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.usage-source-row .react-cost-breakdown__meta > span {
+  animation-delay: calc(var(--usage-row-delay, 0ms) + 34ms);
+}
+
+.usage-source-row .react-cost-breakdown__meta > b {
+  animation-delay: calc(var(--usage-row-delay, 0ms) + 52ms);
+}
+
+.usage-source-row .react-cost-breakdown__meta > em {
+  animation-delay: calc(var(--usage-row-delay, 0ms) + 68ms);
 }
 
 .usage-source-stack {
@@ -4367,8 +4414,34 @@
   animation: usage-detail-panel-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.usage-detail-text {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: usage-detail-text-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .usage-detail-table {
   transition: opacity 0.2s ease;
+}
+
+.usage-detail-table--animated thead th {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: usage-detail-text-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.usage-detail-table--animated thead th:nth-child(1) { animation-delay: 20ms; }
+.usage-detail-table--animated thead th:nth-child(2) { animation-delay: 40ms; }
+.usage-detail-table--animated thead th:nth-child(3) { animation-delay: 60ms; }
+.usage-detail-table--animated thead th:nth-child(4) { animation-delay: 80ms; }
+.usage-detail-table--animated thead th:nth-child(5) { animation-delay: 100ms; }
+.usage-detail-table--animated thead th:nth-child(6) { animation-delay: 120ms; }
+
+.usage-detail-row {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: usage-detail-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--usage-detail-delay, 0ms);
 }
 
 .react-chart-card--total-cost24h .react-cost-snapshot__head {
@@ -4772,8 +4845,8 @@
 
 @keyframes usage-source-row-in {
   from {
-    opacity: 0;
-    transform: translateY(8px);
+    opacity: 0.82;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -4781,28 +4854,41 @@
   }
 }
 
+@keyframes usage-source-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(1.2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
 @keyframes usage-source-swap-a {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0.9; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes usage-source-swap-b {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0.9; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes usage-source-swap-c {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0.9; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes usage-source-swap-d {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0.9; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes usage-source-swap-e {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0.9; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -4816,6 +4902,30 @@
     opacity: 1;
     transform: translateY(0);
     filter: blur(0);
+  }
+}
+
+@keyframes usage-detail-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes usage-detail-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

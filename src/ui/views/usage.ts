@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { keyed } from "lit/directives/keyed.js";
 import "../components/echart-host.ts";
 import { buildReactTokenUsageBarOption } from "./charts/options.ts";
 import { displayTimeZoneLabel } from "./charts/timezone.ts";
@@ -487,52 +488,60 @@ export function renderUsage(props: UsageProps) {
             </div>
           </div>
 
-          <div class="react-cost-snapshot usage-source-card usage-source-card--${props.sourceDimension}">
-            <div class="react-cost-snapshot__head">
-              <strong>
-                ${
-                  dimensionMetric === "toolCalls"
-                    ? `${Math.round(dimensionTotal).toLocaleString()}`
-                    : formatTokens(dimensionTotal)
-                }
-              </strong>
-              <span class="react-cost-snapshot__icon">${sourceDimensionIcon(props.sourceDimension)}</span>
-            </div>
-            <div class="usage-source-card__meta">
-              <span>${sourceDimensionLabel(props.sourceDimension)}</span>
-              <span>${dimensionMetric === "toolCalls" ? "tool calls share" : "token share"}</span>
-              <span>${formatUsd(dimensionCostTotal)}</span>
-            </div>
-            <div class="react-cost-breakdown">
-              ${
-                sourceStack.length === 0
-                  ? html`<span class="muted">No source data for this range.</span>`
-                  : sourceStack.map(
-                      (row) => html`
-                        <div class="react-cost-breakdown__row">
-                          <div class="react-cost-breakdown__meta">
-                            <span><i style="background:${row.color}"></i>${row.label}</span>
-                            <b>
-                              ${
-                                dimensionMetric === "toolCalls"
-                                  ? `${Math.round(row.value).toLocaleString()} calls`
-                                  : formatTokens(row.value)
-                              }
-                            </b>
-                            <em>${row.pct.toFixed(0)}%</em>
-                          </div>
-                        </div>
-                      `,
-                    )
-              }
-            </div>
-            <div class="react-cost-snapshot__stack usage-source-stack">
-              ${sourceStack.map(
-                (row) =>
-                  html`<span class="usage-source-stack__segment" style="width:${Math.max(0, row.pct)}%; background:${row.color};"></span>`,
-              )}
-            </div>
-          </div>
+          ${keyed(
+            `${props.sourceDimension}:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+            html`
+              <div class="react-cost-snapshot usage-source-card usage-source-card--${props.sourceDimension}">
+                <div class="react-cost-snapshot__head">
+                  <strong class="usage-source-text usage-source-text--headline">
+                    ${
+                      dimensionMetric === "toolCalls"
+                        ? `${Math.round(dimensionTotal).toLocaleString()}`
+                        : formatTokens(dimensionTotal)
+                    }
+                  </strong>
+                  <span class="react-cost-snapshot__icon">${sourceDimensionIcon(props.sourceDimension)}</span>
+                </div>
+                <div class="usage-source-card__meta">
+                  <span class="usage-source-text">${sourceDimensionLabel(props.sourceDimension)}</span>
+                  <span class="usage-source-text">${dimensionMetric === "toolCalls" ? "tool calls share" : "token share"}</span>
+                  <span class="usage-source-text usage-source-text--cost">${formatUsd(dimensionCostTotal)}</span>
+                </div>
+                <div class="react-cost-breakdown">
+                  ${
+                    sourceStack.length === 0
+                      ? html`<span class="muted usage-source-text">No source data for this range.</span>`
+                      : sourceStack.map(
+                          (row, index) => html`
+                            <div
+                              class="react-cost-breakdown__row usage-source-row"
+                              style=${`--usage-row-delay:${Math.min(index, 8) * 38}ms`}
+                            >
+                              <div class="react-cost-breakdown__meta">
+                                <span><i style="background:${row.color}"></i>${row.label}</span>
+                                <b>
+                                  ${
+                                    dimensionMetric === "toolCalls"
+                                      ? `${Math.round(row.value).toLocaleString()} calls`
+                                      : formatTokens(row.value)
+                                  }
+                                </b>
+                                <em>${row.pct.toFixed(0)}%</em>
+                              </div>
+                            </div>
+                          `,
+                        )
+                  }
+                </div>
+                <div class="react-cost-snapshot__stack usage-source-stack">
+                  ${sourceStack.map(
+                    (row) =>
+                      html`<span class="usage-source-stack__segment" style="width:${Math.max(0, row.pct)}%; background:${row.color};"></span>`,
+                  )}
+                </div>
+              </div>
+            `,
+          )}
         </article>
       </div>
 
@@ -552,98 +561,109 @@ export function renderUsage(props: UsageProps) {
           </div>
         </div>
 
-        <div class="usage-detail-panel usage-detail-panel--${props.detailPanel}">
-          ${
-            props.detailPanel === "model-detail"
-              ? modelDetailRows.length === 0
-                ? html`<div class="callout warning">No model usage rows found for this range.</div>`
-                : html`
-                    <table class="react-provider-table usage-detail-table">
-                      <thead>
-                        <tr>
-                          <th>Provider</th>
-                          <th>Model</th>
-                          <th>Requests</th>
-                          <th>Tokens</th>
-                          <th>Cost</th>
-                          <th>Avg Tokens / Request</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${modelDetailRows.map(
-                          (entry) => html`
+        ${keyed(
+          `${props.detailPanel}:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+          html`
+            <div class="usage-detail-panel usage-detail-panel--${props.detailPanel}">
+              ${
+                props.detailPanel === "model-detail"
+                  ? modelDetailRows.length === 0
+                    ? html`<div class="callout warning usage-detail-text">No model usage rows found for this range.</div>`
+                    : html`
+                        <table class="react-provider-table usage-detail-table usage-detail-table--animated">
+                          <thead>
                             <tr>
-                              <td><span class="react-provider-badge">${entry.provider}</span></td>
-                              <td><span class="react-model-label">${entry.model}</span></td>
-                              <td>${entry.requests.toLocaleString()}</td>
-                              <td>${formatTokens(entry.tokens)}</td>
-                              <td>${formatUsd(entry.cost)}</td>
-                              <td>${entry.avgTokens.toFixed(entry.avgTokens >= 100 ? 0 : 1)}</td>
+                              <th>Provider</th>
+                              <th>Model</th>
+                              <th>Requests</th>
+                              <th>Tokens</th>
+                              <th>Cost</th>
+                              <th>Avg Tokens / Request</th>
                             </tr>
-                          `,
-                        )}
-                      </tbody>
-                    </table>
-                  `
-              : usageLimits.length === 0
-                ? html`<div class="callout warning">No live provider limit telemetry yet. OpenClaw will show limits when providers expose usage windows.</div>`
-                : html`
-                    <table class="react-provider-table usage-detail-table">
-                      <thead>
-                        <tr>
-                          <th>Provider</th>
-                          <th>Window</th>
-                          <th>Utilization</th>
-                          <th>Remaining</th>
-                          <th>Reset</th>
-                          <th>Telemetry</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${usageLimits.map((entry) => {
-                          const utilization = utilizationPercent(entry);
-                          const tone = utilizationTone(utilization);
-                          const windowName = entry.windowLabel?.trim() || windowLabel(entry.windowType);
-                          return html`
+                          </thead>
+                          <tbody>
+                            ${modelDetailRows.map(
+                              (entry, index) => html`
+                                <tr
+                                  class="usage-detail-row"
+                                  style=${`--usage-detail-delay:${Math.min(index, 10) * 26}ms`}
+                                >
+                                  <td><span class="react-provider-badge">${entry.provider}</span></td>
+                                  <td><span class="react-model-label">${entry.model}</span></td>
+                                  <td>${entry.requests.toLocaleString()}</td>
+                                  <td>${formatTokens(entry.tokens)}</td>
+                                  <td>${formatUsd(entry.cost)}</td>
+                                  <td>${entry.avgTokens.toFixed(entry.avgTokens >= 100 ? 0 : 1)}</td>
+                                </tr>
+                              `,
+                            )}
+                          </tbody>
+                        </table>
+                      `
+                  : usageLimits.length === 0
+                    ? html`<div class="callout warning usage-detail-text">No live provider limit telemetry yet. OpenClaw will show limits when providers expose usage windows.</div>`
+                    : html`
+                        <table class="react-provider-table usage-detail-table usage-detail-table--animated">
+                          <thead>
                             <tr>
-                              <td><span class="react-provider-badge" title=${entry.provider}>${entry.providerDisplayName}</span></td>
-                              <td><span class="react-window-pill">${windowName}</span></td>
-                              <td>
-                                <div class="react-util-cell">
-                                  <div class="react-util-meta">
-                                    <strong class="react-util-value ${tone}">${utilization !== null ? `${utilization.toFixed(0)}%` : "N/A"}</strong>
-                                    <span>
+                              <th>Provider</th>
+                              <th>Window</th>
+                              <th>Utilization</th>
+                              <th>Remaining</th>
+                              <th>Reset</th>
+                              <th>Telemetry</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${usageLimits.map((entry, index) => {
+                              const utilization = utilizationPercent(entry);
+                              const tone = utilizationTone(utilization);
+                              const windowName = entry.windowLabel?.trim() || windowLabel(entry.windowType);
+                              return html`
+                                <tr
+                                  class="usage-detail-row"
+                                  style=${`--usage-detail-delay:${Math.min(index, 10) * 26}ms`}
+                                >
+                                  <td><span class="react-provider-badge" title=${entry.provider}>${entry.providerDisplayName}</span></td>
+                                  <td><span class="react-window-pill">${windowName}</span></td>
+                                  <td>
+                                    <div class="react-util-cell">
+                                      <div class="react-util-meta">
+                                        <strong class="react-util-value ${tone}">${utilization !== null ? `${utilization.toFixed(0)}%` : "N/A"}</strong>
+                                        <span>
+                                          ${
+                                            entry.limit > 0
+                                              ? `${formatTokens(entry.used)} / ${formatTokens(entry.limit)}`
+                                              : `${formatTokens(entry.used)} used`
+                                          }
+                                        </span>
+                                      </div>
                                       ${
-                                        entry.limit > 0
-                                          ? `${formatTokens(entry.used)} / ${formatTokens(entry.limit)}`
-                                          : `${formatTokens(entry.used)} used`
+                                        utilization !== null
+                                          ? html`<div class="react-util-track"><div class="${tone}" style="width:${utilization}%"></div></div>`
+                                          : nothing
                                       }
-                                    </span>
-                                  </div>
-                                  ${
-                                    utilization !== null
-                                      ? html`<div class="react-util-track"><div class="${tone}" style="width:${utilization}%"></div></div>`
-                                      : nothing
-                                  }
-                                </div>
-                              </td>
-                              <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
-                              <td>${formatResetTime(entry.resetAt)}</td>
-                              <td>
-                                <div class="react-telemetry">
-                                  <span class="react-source-pill">${entry.source}</span>
-                                  <span class="react-confidence-pill ${entry.confidence}">${entry.confidence}</span>
-                                  <span class="react-freshness-pill">${Math.max(0, Math.floor(entry.freshnessSec / 60))}m</span>
-                                </div>
-                              </td>
-                            </tr>
-                          `;
-                        })}
-                      </tbody>
-                    </table>
-                  `
-          }
-        </div>
+                                    </div>
+                                  </td>
+                                  <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
+                                  <td>${formatResetTime(entry.resetAt)}</td>
+                                  <td>
+                                    <div class="react-telemetry">
+                                      <span class="react-source-pill">${entry.source}</span>
+                                      <span class="react-confidence-pill ${entry.confidence}">${entry.confidence}</span>
+                                      <span class="react-freshness-pill">${Math.max(0, Math.floor(entry.freshnessSec / 60))}m</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              `;
+                            })}
+                          </tbody>
+                        </table>
+                      `
+              }
+            </div>
+          `,
+        )}
       </section>
 
       ${

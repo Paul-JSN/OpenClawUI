@@ -70,7 +70,9 @@ export class OpenClawEchartHost extends LitElement {
     }
     this.chart = echarts.init(this.canvasEl, undefined, {
       renderer: "canvas",
-      useDirtyRect: true,
+      // Dirty-rect can leave transient ghost lines on large range downshifts (e.g. 30d -> 1d).
+      // Full repaint is safer for dashboard charts and removes hover-only cleanup artifacts.
+      useDirtyRect: false,
     });
   }
 
@@ -110,6 +112,7 @@ export class OpenClawEchartHost extends LitElement {
 
     this.chart.setOption(normalizedOption, {
       notMerge: false,
+      replaceMerge: ["series", "xAxis", "yAxis", "dataset"],
       lazyUpdate: true,
       silent: true,
     });
