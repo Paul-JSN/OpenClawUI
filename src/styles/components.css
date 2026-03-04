@@ -4482,6 +4482,12 @@
   min-width: 140px;
 }
 
+.models-action-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .models-provider-card {
   border: 1px solid var(--border);
   background: var(--secondary);

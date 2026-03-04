@@ -46,6 +46,11 @@ type AuthRow = {
   mode: string;
 };
 
+type AliasSuggestionRow = {
+  modelId: string;
+  alias: string;
+};
+
 type WizardPreset = {
   key: string;
   label: string;
@@ -289,6 +294,64 @@ function isAliasValid(value: string): boolean {
   return ALIAS_RE.test(value.trim());
 }
 
+function deriveAliasSeed(modelId: string): string {
+  const parts = modelId.split("/");
+  const modelPart = parts.length > 1 ? parts.slice(1).join("-") : parts[0] ?? "";
+  const providerPart = parts[0] ?? "model";
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/-{2,}/g, "-")
+      .replace(/^[-._]+|[-._]+$/g, "");
+
+  let seed = normalize(modelPart);
+  if (!seed) {
+    seed = normalize(`${providerPart}-model`);
+  }
+  if (!seed) {
+    seed = "model";
+  }
+  if (!/^[a-z]/.test(seed)) {
+    seed = `m-${seed}`;
+  }
+  if (!isAliasValid(seed)) {
+    return "model";
+  }
+  return seed;
+}
+
+function buildAliasSuggestions(modelIds: string[], aliasRows: AliasRow[]): AliasSuggestionRow[] {
+  const usedAliases = new Set(
+    aliasRows
+      .map((row) => row.alias.trim().toLowerCase())
+      .filter((alias) => alias.length > 0),
+  );
+  const aliasByModelId = new Map(aliasRows.map((row) => [row.modelId, row.alias.trim()]));
+  const suggestions: AliasSuggestionRow[] = [];
+
+  for (const modelId of modelIds) {
+    const existing = aliasByModelId.get(modelId);
+    if (existing && isAliasValid(existing)) {
+      continue;
+    }
+    const base = deriveAliasSeed(modelId);
+    let candidate = base;
+    let suffix = 2;
+    while (usedAliases.has(candidate.toLowerCase())) {
+      candidate = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    if (!isAliasValid(candidate)) {
+      continue;
+    }
+    usedAliases.add(candidate.toLowerCase());
+    suggestions.push({ modelId, alias: candidate });
+  }
+
+  return suggestions;
+}
+
 export function renderModels(props: ModelsProps) {
   const config = (props.configForm ?? props.configSnapshot?.config ?? null) as
     | Record<string, unknown>
@@ -304,15 +367,23 @@ export function renderModels(props: ModelsProps) {
     authByProvider.set(row.provider, (authByProvider.get(row.provider) ?? 0) + 1);
   }
 
+  const providerModelIds = providerRows
+    .flatMap((provider) => provider.modelRows.map((model) => `${provider.id}/${model.id}`))
+    .toSorted((a, b) => a.localeCompare(b));
+  const providerModelIdSet = new Set(providerModelIds);
   const knownModelIds = Array.from(
     new Set([
       ...props.modelSuggestions,
       ...aliasRows.map((row) => row.modelId),
-      ...providerRows.flatMap((provider) => provider.modelRows.map((model) => `${provider.id}/${model.id}`)),
+      ...providerModelIds,
     ]),
   ).toSorted((a, b) => a.localeCompare(b));
   const invalidModelIdAliases = aliasRows.filter((row) => !isQualifiedModelId(row.modelId));
   const invalidAliasNames = aliasRows.filter((row) => row.alias && !isAliasValid(row.alias));
+  const orphanAliases = aliasRows.filter(
+    (row) => row.alias && isQualifiedModelId(row.modelId) && !providerModelIdSet.has(row.modelId),
+  );
+  const aliasSuggestions = buildAliasSuggestions(providerModelIds, aliasRows);
 
   return html`
     <section class="models-page">
@@ -361,6 +432,146 @@ export function renderModels(props: ModelsProps) {
           </div>
         </article>
       </div>
+
+      <section class="card">
+        <div class="card-title">Validation & Suggested Fixes</div>
+        <div class="card-sub">Catch stale mappings and apply safe alias suggestions.</div>
+
+        ${
+          orphanAliases.length === 0 &&
+          invalidModelIdAliases.length === 0 &&
+          invalidAliasNames.length === 0 &&
+          aliasSuggestions.length === 0
+            ? html`<div class="callout" style="margin-top: 10px;">No obvious model mapping issues found.</div>`
+            : html`
+                <div class="stack" style="margin-top: 10px; gap: 12px;">
+                  ${
+                    orphanAliases.length > 0
+                      ? html`
+                          <div>
+                            <div class="muted" style="margin-bottom: 6px;">
+                              Orphan aliases (model id missing from providers): ${orphanAliases.length}
+                            </div>
+                            <div class="models-action-list">
+                              ${orphanAliases.map(
+                                (row) => html`
+                                  <button
+                                    class="btn danger"
+                                    @click=${() =>
+                                      props.onRemove(["agents", "defaults", "models", row.modelId, "alias"])}
+                                  >
+                                    Remove ${row.modelId} → ${row.alias}
+                                  </button>
+                                `,
+                              )}
+                            </div>
+                          </div>
+                        `
+                      : nothing
+                  }
+
+                  ${
+                    invalidModelIdAliases.length > 0
+                      ? html`
+                          <div>
+                            <div class="muted" style="margin-bottom: 6px;">
+                              Invalid model-id keys: ${invalidModelIdAliases.length}
+                            </div>
+                            <div class="models-action-list">
+                              ${invalidModelIdAliases.map(
+                                (row) => html`
+                                  <button
+                                    class="btn danger"
+                                    @click=${() => props.onRemove(["agents", "defaults", "models", row.modelId])}
+                                  >
+                                    Remove invalid key ${row.modelId}
+                                  </button>
+                                `,
+                              )}
+                            </div>
+                          </div>
+                        `
+                      : nothing
+                  }
+
+                  ${
+                    invalidAliasNames.length > 0
+                      ? html`
+                          <div>
+                            <div class="muted" style="margin-bottom: 6px;">
+                              Invalid alias values: ${invalidAliasNames.length}
+                            </div>
+                            <div class="models-action-list">
+                              ${invalidAliasNames.map(
+                                (row) => html`
+                                  <button
+                                    class="btn danger"
+                                    @click=${() =>
+                                      props.onRemove(["agents", "defaults", "models", row.modelId, "alias"])}
+                                  >
+                                    Clear invalid alias on ${row.modelId}
+                                  </button>
+                                `,
+                              )}
+                            </div>
+                          </div>
+                        `
+                      : nothing
+                  }
+
+                  ${
+                    aliasSuggestions.length > 0
+                      ? html`
+                          <div>
+                            <div class="muted" style="margin-bottom: 6px;">
+                              Suggested aliases for configured models: ${aliasSuggestions.length}
+                            </div>
+                            <table class="react-provider-table usage-detail-table">
+                              <thead>
+                                <tr>
+                                  <th>Model ID</th>
+                                  <th>Suggested Alias</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${aliasSuggestions.slice(0, 20).map(
+                                  (row) => html`
+                                    <tr>
+                                      <td><span class="react-model-label">${row.modelId}</span></td>
+                                      <td><span class="react-provider-badge">${row.alias}</span></td>
+                                      <td>
+                                        <button
+                                          class="btn"
+                                          @click=${() =>
+                                            props.onPatch(
+                                              ["agents", "defaults", "models", row.modelId, "alias"],
+                                              row.alias,
+                                            )}
+                                        >
+                                          Apply
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  `,
+                                )}
+                              </tbody>
+                            </table>
+                            ${
+                              aliasSuggestions.length > 20
+                                ? html`<div class="muted" style="margin-top: 6px;">
+                                    Showing first 20 suggestions.
+                                  </div>`
+                                : nothing
+                            }
+                          </div>
+                        `
+                      : nothing
+                  }
+                </div>
+              `
+        }
+      </section>
 
       <section class="card">
         <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
