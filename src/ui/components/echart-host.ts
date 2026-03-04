@@ -130,7 +130,6 @@ export class OpenClawEchartHost extends LitElement {
 
     this.chart.setOption(normalizedOption, {
       notMerge: false,
-      replaceMerge: ["series", "xAxis", "yAxis", "dataset"],
       lazyUpdate: true,
       silent: true,
     });

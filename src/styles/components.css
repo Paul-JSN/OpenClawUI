@@ -4331,8 +4331,16 @@
 }
 
 .usage-source-card .react-cost-breakdown__meta {
+  grid-template-columns: minmax(0, 1fr) auto auto;
   font-size: 11px;
   gap: 10px;
+}
+
+.usage-source-card .react-cost-breakdown__meta span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .usage-source-card .react-cost-breakdown__meta b {
