@@ -1,4 +1,4 @@
-import { html } from "lit";
+import { html, nothing } from "lit";
 import type { ConfigSnapshot } from "../types.ts";
 
 type ModelsProps = {
