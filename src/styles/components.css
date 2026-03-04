@@ -4299,6 +4299,7 @@
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   gap: 8px;
+  contain: layout paint;
 }
 
 .react-chart-card--usage-breakdown {
@@ -4326,6 +4327,7 @@
 .usage-source-card .react-cost-breakdown {
   align-content: start;
   gap: 8px;
+  min-height: calc((6 * 22px) + (5 * 8px));
 }
 
 .usage-source-card .react-cost-breakdown__meta {
@@ -4369,8 +4371,18 @@
 }
 
 .usage-source-row {
+  min-height: 22px;
   animation: usage-source-row-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--usage-row-delay, 0ms);
+}
+
+.usage-source-row--placeholder {
+  opacity: 0.36;
+}
+
+.usage-source-row--placeholder .react-cost-breakdown__meta > span i {
+  background: transparent !important;
+  border: 1px dashed var(--border);
 }
 
 .usage-source-row .react-cost-breakdown__meta > span,
@@ -4868,28 +4880,28 @@
 }
 
 @keyframes usage-source-swap-a {
-  from { opacity: 0.9; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0.9; }
+  to { opacity: 1; }
 }
 
 @keyframes usage-source-swap-b {
-  from { opacity: 0.9; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0.9; }
+  to { opacity: 1; }
 }
 
 @keyframes usage-source-swap-c {
-  from { opacity: 0.9; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0.9; }
+  to { opacity: 1; }
 }
 
 @keyframes usage-source-swap-d {
-  from { opacity: 0.9; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0.9; }
+  to { opacity: 1; }
 }
 
 @keyframes usage-source-swap-e {
-  from { opacity: 0.9; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0.9; }
+  to { opacity: 1; }
 }
 
 @keyframes usage-detail-panel-in {

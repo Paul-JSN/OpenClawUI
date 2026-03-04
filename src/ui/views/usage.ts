@@ -301,7 +301,8 @@ export function renderUsage(props: UsageProps) {
     model.trends.map((point) => (point.sessions > 0 ? point.cost / point.sessions : 0)),
   );
 
-  const dimensionRows = (model.dimensionSummary[props.sourceDimension] ?? []).slice(0, 6);
+  const MAX_BREAKDOWN_ROWS = 6;
+  const dimensionRows = (model.dimensionSummary[props.sourceDimension] ?? []).slice(0, MAX_BREAKDOWN_ROWS);
   const dimensionMetric = props.sourceDimension === "tools" ? "toolCalls" : "tokens";
   const dimensionTotal = dimensionRows.reduce((acc, row) => acc + Math.max(0, row.value), 0);
   const dimensionCostTotal = dimensionRows.reduce((acc, row) => acc + Math.max(0, row.totalCost), 0);
@@ -313,6 +314,7 @@ export function renderUsage(props: UsageProps) {
       color: SOURCE_COLORS[index % SOURCE_COLORS.length],
     };
   });
+  const sourcePlaceholderCount = Math.max(0, MAX_BREAKDOWN_ROWS - sourceStack.length);
   const modelDetailRows = (props.aggregates?.byModel ?? [])
     .map((row) => {
       const provider = (row.provider ?? "unknown").trim() || "unknown";
@@ -488,11 +490,11 @@ export function renderUsage(props: UsageProps) {
             </div>
           </div>
 
-          ${keyed(
-            `${props.sourceDimension}:${props.rangePreset}:${props.startDate}:${props.endDate}`,
-            html`
-              <div class="react-cost-snapshot usage-source-card usage-source-card--${props.sourceDimension}">
-                <div class="react-cost-snapshot__head">
+          <div class="react-cost-snapshot usage-source-card usage-source-card--${props.sourceDimension}">
+            <div class="react-cost-snapshot__head">
+              ${keyed(
+                `${props.sourceDimension}:headline:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+                html`
                   <strong class="usage-source-text usage-source-text--headline">
                     ${
                       dimensionMetric === "toolCalls"
@@ -500,22 +502,39 @@ export function renderUsage(props: UsageProps) {
                         : formatTokens(dimensionTotal)
                     }
                   </strong>
-                  <span class="react-cost-snapshot__icon">${sourceDimensionIcon(props.sourceDimension)}</span>
-                </div>
-                <div class="usage-source-card__meta">
-                  <span class="usage-source-text">${sourceDimensionLabel(props.sourceDimension)}</span>
-                  <span class="usage-source-text">${dimensionMetric === "toolCalls" ? "tool calls share" : "token share"}</span>
-                  <span class="usage-source-text usage-source-text--cost">${formatUsd(dimensionCostTotal)}</span>
-                </div>
-                <div class="react-cost-breakdown">
-                  ${
-                    sourceStack.length === 0
-                      ? html`<span class="muted usage-source-text">No source data for this range.</span>`
-                      : sourceStack.map(
-                          (row, index) => html`
+                `,
+              )}
+              <span class="react-cost-snapshot__icon">${sourceDimensionIcon(props.sourceDimension)}</span>
+            </div>
+            <div class="usage-source-card__meta">
+              ${keyed(
+                `${props.sourceDimension}:meta-label:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+                html`<span class="usage-source-text">${sourceDimensionLabel(props.sourceDimension)}</span>`,
+              )}
+              ${keyed(
+                `${props.sourceDimension}:meta-kind:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+                html`<span class="usage-source-text">${dimensionMetric === "toolCalls" ? "tool calls share" : "token share"}</span>`,
+              )}
+              ${keyed(
+                `${props.sourceDimension}:meta-cost:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+                html`<span class="usage-source-text usage-source-text--cost">${formatUsd(dimensionCostTotal)}</span>`,
+              )}
+            </div>
+            <div class="react-cost-breakdown">
+              ${
+                sourceStack.length === 0
+                  ? keyed(
+                      `${props.sourceDimension}:empty:${props.rangePreset}:${props.startDate}:${props.endDate}`,
+                      html`<span class="muted usage-source-text">No source data for this range.</span>`,
+                    )
+                  : html`
+                      ${sourceStack.map((row, index) =>
+                        keyed(
+                          `${props.sourceDimension}:${props.rangePreset}:${props.startDate}:${props.endDate}:${row.label}:${index}`,
+                          html`
                             <div
                               class="react-cost-breakdown__row usage-source-row"
-                              style=${`--usage-row-delay:${Math.min(index, 8) * 38}ms`}
+                              style=${`--usage-row-delay:${Math.min(index, 8) * 34}ms`}
                             >
                               <div class="react-cost-breakdown__meta">
                                 <span><i style="background:${row.color}"></i>${row.label}</span>
@@ -530,18 +549,35 @@ export function renderUsage(props: UsageProps) {
                               </div>
                             </div>
                           `,
-                        )
-                  }
-                </div>
-                <div class="react-cost-snapshot__stack usage-source-stack">
-                  ${sourceStack.map(
-                    (row) =>
-                      html`<span class="usage-source-stack__segment" style="width:${Math.max(0, row.pct)}%; background:${row.color};"></span>`,
-                  )}
-                </div>
-              </div>
-            `,
-          )}
+                        ),
+                      )}
+                      ${Array.from({ length: sourcePlaceholderCount }, (_, placeholderIndex) =>
+                        keyed(
+                          `${props.sourceDimension}:${props.rangePreset}:${props.startDate}:${props.endDate}:placeholder:${placeholderIndex}`,
+                          html`
+                            <div
+                              class="react-cost-breakdown__row usage-source-row usage-source-row--placeholder"
+                              style=${`--usage-row-delay:${Math.min(sourceStack.length + placeholderIndex, 8) * 34}ms`}
+                            >
+                              <div class="react-cost-breakdown__meta">
+                                <span><i></i>—</span>
+                                <b>—</b>
+                                <em>0%</em>
+                              </div>
+                            </div>
+                          `,
+                        ),
+                      )}
+                    `
+              }
+            </div>
+            <div class="react-cost-snapshot__stack usage-source-stack">
+              ${sourceStack.map(
+                (row) =>
+                  html`<span class="usage-source-stack__segment" style="width:${Math.max(0, row.pct)}%; background:${row.color};"></span>`,
+              )}
+            </div>
+          </div>
         </article>
       </div>
 

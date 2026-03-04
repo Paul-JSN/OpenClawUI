@@ -17,6 +17,7 @@ export class OpenClawEchartHost extends LitElement {
   private transitionResizeTimeout: number | null = null;
   private optionApplyTimer: number | null = null;
   private pendingOption: EChartsOption | null = null;
+  private lastOptionSignature: string | null = null;
   private readonly onLayoutTransition = () => {
     this.runTransitionResize(520);
   };
@@ -61,6 +62,7 @@ export class OpenClawEchartHost extends LitElement {
       this.chart.dispose();
       this.chart = null;
     }
+    this.lastOptionSignature = null;
     super.disconnectedCallback();
   }
 
@@ -87,9 +89,25 @@ export class OpenClawEchartHost extends LitElement {
     }, 70);
   }
 
+  private buildOptionSignature(option: EChartsOption): string {
+    try {
+      return JSON.stringify(option, (_, value) =>
+        typeof value === "function" ? "__fn__" : value,
+      );
+    } catch {
+      // Fallback when stringify fails (rare circular refs): force apply.
+      return `${Date.now()}-${Math.random()}`;
+    }
+  }
+
   private applyOptionNow(option: EChartsOption | null) {
     this.ensureChart();
     if (!this.chart || !option) {
+      return;
+    }
+
+    const optionSignature = this.buildOptionSignature(option);
+    if (optionSignature === this.lastOptionSignature) {
       return;
     }
 
@@ -101,7 +119,7 @@ export class OpenClawEchartHost extends LitElement {
       normalizedOption.animationDuration = 260;
     }
     if (normalizedOption.animationDurationUpdate === undefined) {
-      normalizedOption.animationDurationUpdate = 220;
+      normalizedOption.animationDurationUpdate = 360;
     }
     if (normalizedOption.animationEasing === undefined) {
       normalizedOption.animationEasing = "quarticOut";
@@ -116,6 +134,7 @@ export class OpenClawEchartHost extends LitElement {
       lazyUpdate: true,
       silent: true,
     });
+    this.lastOptionSignature = optionSignature;
   }
 
   private attachResizeObserver() {
