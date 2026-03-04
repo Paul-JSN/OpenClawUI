@@ -78,6 +78,7 @@ import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
+import { renderModels } from "./views/models.ts";
 import { buildUsageAnalyticsViewModel } from "./views/usage-analytics-adapter.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
@@ -542,6 +543,27 @@ export function renderApp(state: AppViewState) {
         }
 
         ${renderUsageTabLazy(state)}
+
+        ${
+          state.tab === "models"
+            ? renderModels({
+                connected: state.connected,
+                loading: state.configLoading,
+                saving: state.configSaving,
+                applying: state.configApplying,
+                dirty: state.configFormDirty,
+                configForm: state.configForm,
+                configSnapshot: state.configSnapshot,
+                modelSuggestions: state.cronModelSuggestions,
+                onPatch: (path, value) => updateConfigFormValue(state, path, value),
+                onRemove: (path) => removeConfigFormValue(state, path),
+                onReload: () => loadConfig(state),
+                onSave: () => saveConfig(state),
+                onApply: () => applyConfig(state),
+                onOpenConfig: () => state.setTab("config"),
+              })
+            : nothing
+        }
 
         ${
           state.tab === "cron"

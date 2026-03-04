@@ -4464,6 +4464,27 @@
   animation-delay: var(--usage-detail-delay, 0ms);
 }
 
+.models-page {
+  display: grid;
+  gap: 16px;
+}
+
+.models-provider-card {
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.models-page .row input,
+.models-page .row select {
+  min-width: 140px;
+}
+
+.models-page .usage-detail-table input {
+  width: 100%;
+}
+
 .react-chart-card--total-cost24h .react-cost-snapshot__head {
   align-items: flex-start;
   transform: translateY(-4px);
