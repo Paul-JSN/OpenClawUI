@@ -4,6 +4,8 @@ import {
   stopLogsPolling,
   startDebugPolling,
   stopDebugPolling,
+  startUsagePolling,
+  stopUsagePolling,
 } from "./app-polling.ts";
 import { scheduleChatScroll, scheduleLogsScroll } from "./app-scroll.ts";
 import type { OpenClawApp } from "./app.ts";
@@ -51,6 +53,7 @@ type SettingsHost = {
   connected: boolean;
   chatHasAutoScrolled: boolean;
   logsAtBottom: boolean;
+  usagePollInterval: number | null;
   eventLog: unknown[];
   eventLogBuffer: unknown[];
   basePath: string;
@@ -165,6 +168,11 @@ export function setTab(host: SettingsHost, next: Tab) {
     startDebugPolling(host as unknown as Parameters<typeof startDebugPolling>[0]);
   } else {
     stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
+  }
+  if (next === "usage") {
+    startUsagePolling(host as unknown as Parameters<typeof startUsagePolling>[0]);
+  } else {
+    stopUsagePolling(host as unknown as Parameters<typeof stopUsagePolling>[0]);
   }
   void refreshActiveTab(host);
   syncUrlWithTab(host, next, false);
@@ -368,6 +376,11 @@ export function setTabFromRoute(host: SettingsHost, next: Tab) {
     startDebugPolling(host as unknown as Parameters<typeof startDebugPolling>[0]);
   } else {
     stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
+  }
+  if (next === "usage") {
+    startUsagePolling(host as unknown as Parameters<typeof startUsagePolling>[0]);
+  } else {
+    stopUsagePolling(host as unknown as Parameters<typeof stopUsagePolling>[0]);
   }
   if (host.connected) {
     void refreshActiveTab(host);

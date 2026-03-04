@@ -27,6 +27,7 @@ import {
 } from "./controllers/exec-approval.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadSessions } from "./controllers/sessions.ts";
+import { loadUsage } from "./controllers/usage.ts";
 import {
   resolveGatewayErrorDetailCode,
   type GatewayEventFrame,
@@ -173,6 +174,11 @@ export function connectGateway(host: GatewayHost) {
       void loadNodes(host as unknown as OpenClawApp, { quiet: true });
       void loadDevices(host as unknown as OpenClawApp, { quiet: true });
       void refreshActiveTab(host as unknown as Parameters<typeof refreshActiveTab>[0]);
+      if (host.tab !== "usage") {
+        void loadUsage(host as unknown as OpenClawApp).catch(() => {
+          // best-effort warm preload
+        });
+      }
     },
     onClose: ({ code, reason, error }) => {
       if (host.client !== client) {

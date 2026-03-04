@@ -19,6 +19,7 @@ function createHost() {
     logsAutoFollow: false,
     logsAtBottom: true,
     logsEntries: [],
+    usagePollInterval: null,
     popStateHandler: vi.fn(),
     topbarObserver: { disconnect: vi.fn() } as unknown as ResizeObserver,
   };
