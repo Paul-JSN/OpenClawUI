@@ -480,6 +480,38 @@
    Form Fields
    =========================================== */
 
+/* Global fallback styling for inputs/selects not wrapped in `.field` */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+select,
+textarea {
+  border: 1px solid var(--input);
+  background: var(--card);
+  border-radius: var(--radius-md);
+  padding: 7px 10px;
+  min-height: 30px;
+  outline: none;
+  box-shadow: inset 0 1px 0 var(--card-highlight);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    background var(--duration-fast) ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--ring);
+  box-shadow: var(--focus-ring);
+}
+
+select:not([multiple]) {
+  appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -4474,7 +4506,7 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .models-wizard-form--easy {
@@ -4490,6 +4522,16 @@
 .models-wizard-form input,
 .models-wizard-form select {
   min-width: 140px;
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.models-wizard-form .btn {
+  min-height: 28px;
+  padding: 5px 10px;
+  font-size: 10px;
+  letter-spacing: 0.03em;
 }
 
 .models-oauth-command-preview {
