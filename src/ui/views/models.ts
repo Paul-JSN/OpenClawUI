@@ -1905,6 +1905,10 @@ export function renderModels(props: ModelsProps) {
                 maxTokens: catalog?.maxTokens ?? null,
               };
             });
+            const configuredModelIdSet = new Set(providerModels.map((model) => model.id));
+            const referencedOnlyModelRows = referencedModelRows.filter(
+              (model) => !configuredModelIdSet.has(model.id),
+            );
             return html`
               <details class="models-provider-accordion">
                 <summary class="models-provider-accordion__summary">
@@ -1947,6 +1951,24 @@ export function renderModels(props: ModelsProps) {
                             ${
                               aliasModelIds.length > 0
                                 ? html`
+                                    <button
+                                      class="btn danger"
+                                      @click=${() => {
+                                        if (!confirm(`Delete ${aliasModelIds.length} model refs under ${provider.id}?`)) {
+                                          return;
+                                        }
+                                        for (const modelId of aliasModelIds) {
+                                          props.onRemove([
+                                            "agents",
+                                            "defaults",
+                                            "models",
+                                            `${provider.id}/${modelId}`,
+                                          ]);
+                                        }
+                                      }}
+                                    >
+                                      Remove Provider Refs
+                                    </button>
                                     <button
                                       class="btn danger"
                                       @click=${() => {
@@ -2014,16 +2036,18 @@ export function renderModels(props: ModelsProps) {
                           </form>
 
                           ${
-                            providerModels.length === 0
+                            providerModels.length === 0 && referencedOnlyModelRows.length === 0
                               ? html`
                                   <div class="muted" style="margin-top: 10px;">
                                     No provider models configured.
-                                    ${aliasModelIds.length > 0
-                                      ? html`Alias refs: ${aliasModelIds.join(", ")}`
-                                      : nothing}
                                   </div>
                                 `
-                              : html`
+                              : nothing
+                          }
+
+                          ${
+                            providerModels.length > 0
+                              ? html`
                                   <table class="react-provider-table usage-detail-table" style="margin-top: 10px;">
                                     <thead>
                                       <tr>
@@ -2066,6 +2090,55 @@ export function renderModels(props: ModelsProps) {
                                     </tbody>
                                   </table>
                                 `
+                              : nothing
+                          }
+
+                          ${
+                            referencedOnlyModelRows.length > 0
+                              ? html`
+                                  <div class="muted" style="margin-top: 10px;">
+                                    Referenced models (no local model entry).
+                                  </div>
+                                  <table class="react-provider-table usage-detail-table" style="margin-top: 8px;">
+                                    <thead>
+                                      <tr>
+                                        <th>Model</th>
+                                        <th>Name</th>
+                                        <th>Context</th>
+                                        <th>Max Tokens</th>
+                                        <th></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      ${referencedOnlyModelRows.map(
+                                        (model) => html`
+                                          <tr>
+                                            <td><span class="react-model-label">${model.id}</span></td>
+                                            <td>${model.name}</td>
+                                            <td>${model.contextWindow?.toLocaleString() ?? "--"}</td>
+                                            <td>${model.maxTokens?.toLocaleString() ?? "--"}</td>
+                                            <td>
+                                              <button
+                                                class="btn danger"
+                                                @click=${() => {
+                                                  props.onRemove([
+                                                    "agents",
+                                                    "defaults",
+                                                    "models",
+                                                    `${provider.id}/${model.id}`,
+                                                  ]);
+                                                }}
+                                              >
+                                                Remove Ref
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        `,
+                                      )}
+                                    </tbody>
+                                  </table>
+                                `
+                              : nothing
                           }
                         `
                       : html`
