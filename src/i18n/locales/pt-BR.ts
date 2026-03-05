@@ -45,7 +45,7 @@ export const pt_BR: TranslationMap = {
     instances: "Beacons de presença de clientes e nós conectados.",
     sessions: "Inspecionar sessões ativas e ajustar padrões por sessão.",
     usage: "Monitorar uso e custos da API.",
-    models: "Gerenciar provedores, catálogos e aliases de modelos.",
+    models: "Gerenciar provedores de modelo, aliases e exclusões.",
     cron: "Agendar despertares e execuções recorrentes de agentes.",
     skills: "Gerenciar disponibilidade de habilidades e injeção de chaves de API.",
     nodes: "Dispositivos pareados, capacidades e exposição de comandos.",

@@ -45,7 +45,7 @@ export const zh_TW: TranslationMap = {
     instances: "來自已連接客戶端和節點的在線信號。",
     sessions: "檢查活動會話並調整每個會話的默認設置。",
     usage: "監控 API 使用情況和成本。",
-    models: "管理模型供應商、目錄與別名。",
+    models: "管理模型提供者、別名與刪除。",
     cron: "安排喚醒和重複的代理運行。",
     skills: "管理技能可用性和 API 密鑰注入。",
     nodes: "配對設備、功能和命令公開。",
