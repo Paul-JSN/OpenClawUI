@@ -660,6 +660,40 @@ function setEasyModelOptions(
   updateEasyAliasPlaceholder(form, providerId, modelsByProvider);
 }
 
+function hasExistingProviderApiCredential(provider: ProviderRow | undefined): boolean {
+  const currentApiKey = provider?.raw?.apiKey;
+  if (typeof currentApiKey === "string") {
+    return currentApiKey.trim().length > 0;
+  }
+  return currentApiKey !== undefined && currentApiKey !== null;
+}
+
+function resolveProviderAuthValidationError(params: {
+  providerId: string;
+  authMode: string;
+  provider: ProviderRow | undefined;
+  apiKeyInput: string;
+  authByProvider: Map<string, number>;
+}): string | null {
+  const authMode = normalizeAuthMode(params.authMode);
+  if (!authMode) {
+    return null;
+  }
+
+  if (authMode === "api-key") {
+    if (params.apiKeyInput.trim().length === 0 && !hasExistingProviderApiCredential(params.provider)) {
+      return `Provider ${params.providerId} requires api key/env ref before adding. Fill api key first.`;
+    }
+    return null;
+  }
+
+  if (AUTH_PROFILE_REQUIRED_MODES.has(authMode) && (params.authByProvider.get(params.providerId) ?? 0) === 0) {
+    return `Provider ${params.providerId} uses ${authMode}. Add auth profile first, then retry.`;
+  }
+
+  return null;
+}
+
 function renderModelsKpiIcon(kind: "providers" | "models" | "aliases" | "auth") {
   switch (kind) {
     case "providers":
@@ -801,52 +835,52 @@ export function renderModels(props: ModelsProps) {
           : nothing
       }
 
-      <div class="kpi-grid models-kpi-grid" style="margin-bottom: 14px;">
-        <article class="kpi-card">
-          <div class="kpi-card__inner">
-            <div class="kpi-card__left">
-              <div class="kpi-card__label">Providers</div>
-              <div class="kpi-card__value">${providerRows.length}</div>
-              <div class="kpi-card__sub">active ${activeProviderIds.length} · catalog ${catalogProviders.length}</div>
+      <div class="react-kpi-grid models-kpi-grid" style="margin-bottom: 14px;">
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Providers</label>
+              <strong>${providerRows.length}</strong>
+              <small>active ${activeProviderIds.length} · catalog ${catalogProviders.length}</small>
             </div>
-            <div class="kpi-card__right">
-              <div class="kpi-card__icon-box">${renderModelsKpiIcon("providers")}</div>
-            </div>
-          </div>
-        </article>
-        <article class="kpi-card">
-          <div class="kpi-card__inner">
-            <div class="kpi-card__left">
-              <div class="kpi-card__label">Configured Models</div>
-              <div class="kpi-card__value">${providerModelCount}</div>
-              <div class="kpi-card__sub">catalog known ${catalogModels.length}</div>
-            </div>
-            <div class="kpi-card__right">
-              <div class="kpi-card__icon-box">${renderModelsKpiIcon("models")}</div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderModelsKpiIcon("providers")}</span>
             </div>
           </div>
         </article>
-        <article class="kpi-card">
-          <div class="kpi-card__inner">
-            <div class="kpi-card__left">
-              <div class="kpi-card__label">Model Aliases</div>
-              <div class="kpi-card__value">${aliasRows.filter((row) => row.alias).length}</div>
-              <div class="kpi-card__sub">invalid ${invalidAliasNames.length + invalidModelIdAliases.length}</div>
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Configured Models</label>
+              <strong>${providerModelCount}</strong>
+              <small>catalog known ${catalogModels.length}</small>
             </div>
-            <div class="kpi-card__right">
-              <div class="kpi-card__icon-box">${renderModelsKpiIcon("aliases")}</div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderModelsKpiIcon("models")}</span>
             </div>
           </div>
         </article>
-        <article class="kpi-card">
-          <div class="kpi-card__inner">
-            <div class="kpi-card__left">
-              <div class="kpi-card__label">Auth Profiles</div>
-              <div class="kpi-card__value">${authRows.length}</div>
-              <div class="kpi-card__sub">providers with auth ${authByProvider.size}</div>
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Model Aliases</label>
+              <strong>${aliasRows.filter((row) => row.alias).length}</strong>
+              <small>invalid ${invalidAliasNames.length + invalidModelIdAliases.length}</small>
             </div>
-            <div class="kpi-card__right">
-              <div class="kpi-card__icon-box">${renderModelsKpiIcon("auth")}</div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderModelsKpiIcon("aliases")}</span>
+            </div>
+          </div>
+        </article>
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Auth Profiles</label>
+              <strong>${authRows.length}</strong>
+              <small>providers with auth ${authByProvider.size}</small>
+            </div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderModelsKpiIcon("auth")}</span>
             </div>
           </div>
         </article>
@@ -940,11 +974,24 @@ export function renderModels(props: ModelsProps) {
             }
 
             const provider = providerById.get(providerId);
+            const normalizedAuth = normalizeAuthMode(auth || template.auth);
+            const authValidationError = resolveProviderAuthValidationError({
+              providerId,
+              authMode: normalizedAuth,
+              provider,
+              apiKeyInput: apiKey,
+              authByProvider,
+            });
+            if (authValidationError) {
+              alert(authValidationError);
+              return;
+            }
+
             const nextProvider = createProviderObject({
               current: provider?.raw ?? null,
               baseUrl: template.baseUrl,
               api: template.api,
-              auth: auth || template.auth,
+              auth: normalizedAuth,
               apiKey,
             });
             nextProvider.models = upsertCatalogModelRows(
@@ -958,17 +1005,6 @@ export function renderModels(props: ModelsProps) {
                 ["agents", "defaults", "models", `${providerId}/${selectedRows[0].id}`, "alias"],
                 alias,
               );
-            }
-
-            const normalizedAuth = normalizeAuthMode(auth || template.auth);
-            if (
-              AUTH_PROFILE_REQUIRED_MODES.has(normalizedAuth) &&
-              (authByProvider.get(providerId) ?? 0) === 0
-            ) {
-              props.onPatch(["auth", "profiles", `${providerId}:default`], {
-                provider: providerId,
-                mode: normalizedAuth,
-              });
             }
 
             form.reset();
@@ -1074,7 +1110,7 @@ export function renderModels(props: ModelsProps) {
       </section>
 
       <section class="card">
-        <details class="models-collapse">
+        <details class="models-collapse" open>
           <summary class="models-collapse__summary">
             <div>
               <div class="card-title">Advanced Setup Wizard</div>
@@ -1128,11 +1164,24 @@ export function renderModels(props: ModelsProps) {
             }
 
             const provider = providerById.get(providerId);
+            const normalizedAuth = normalizeAuthMode(auth);
+            const authValidationError = resolveProviderAuthValidationError({
+              providerId,
+              authMode: normalizedAuth,
+              provider,
+              apiKeyInput: apiKey,
+              authByProvider,
+            });
+            if (authValidationError) {
+              alert(authValidationError);
+              return;
+            }
+
             const nextProvider = createProviderObject({
               current: provider?.raw ?? null,
               baseUrl,
               api,
-              auth,
+              auth: normalizedAuth,
               apiKey,
             });
             const contextWindow = normalizePositiveInteger(data.get("contextWindow"));
@@ -1150,16 +1199,6 @@ export function renderModels(props: ModelsProps) {
               props.onPatch(["agents", "defaults", "models", qualifiedModelId, "alias"], alias);
             }
 
-            const normalizedAuth = normalizeAuthMode(auth);
-            if (
-              AUTH_PROFILE_REQUIRED_MODES.has(normalizedAuth) &&
-              (authByProvider.get(providerId) ?? 0) === 0
-            ) {
-              props.onPatch(["auth", "profiles", `${providerId}:default`], {
-                provider: providerId,
-                mode: normalizedAuth,
-              });
-            }
             form.reset();
           }}
         >
@@ -1268,10 +1307,24 @@ export function renderModels(props: ModelsProps) {
               alert("Base URL should start with http:// or https://");
               return;
             }
-            const current = providerById.get(providerId)?.raw ?? null;
+            const provider = providerById.get(providerId);
+            const normalizedAuth = normalizeAuthMode(auth);
+            const authValidationError = resolveProviderAuthValidationError({
+              providerId,
+              authMode: normalizedAuth,
+              provider,
+              apiKeyInput: apiKey,
+              authByProvider,
+            });
+            if (authValidationError) {
+              alert(authValidationError);
+              return;
+            }
+
+            const current = provider?.raw ?? null;
             props.onPatch(
               ["models", "providers", providerId],
-              createProviderObject({ current, baseUrl, api, auth, apiKey }),
+              createProviderObject({ current, baseUrl, api, auth: normalizedAuth, apiKey }),
             );
             form.reset();
           }}
@@ -1305,7 +1358,7 @@ export function renderModels(props: ModelsProps) {
             const catalogCount = catalogModelsByProvider.get(providerId)?.length ?? 0;
             const isActive = activeProviderIdSet.has(providerId);
             return html`
-              <details class="models-provider-accordion" ?open=${isActive || providerId === defaultEasyProviderId}>
+              <details class="models-provider-accordion" open>
                 <summary class="models-provider-accordion__summary">
                   <div>
                     <strong>${providerId}</strong>
@@ -1442,7 +1495,18 @@ export function renderModels(props: ModelsProps) {
                                     <button
                                       class="btn"
                                       style="margin-left: 8px;"
-                                      @click=${() =>
+                                      @click=${() => {
+                                        const authValidationError = resolveProviderAuthValidationError({
+                                          providerId,
+                                          authMode: template.auth,
+                                          provider: undefined,
+                                          apiKeyInput: "",
+                                          authByProvider,
+                                        });
+                                        if (authValidationError) {
+                                          alert(authValidationError);
+                                          return;
+                                        }
                                         props.onPatch(
                                           ["models", "providers", providerId],
                                           createProviderObject({
@@ -1452,7 +1516,8 @@ export function renderModels(props: ModelsProps) {
                                             auth: template.auth,
                                             apiKey: "",
                                           }),
-                                        )}
+                                        );
+                                      }}
                                     >
                                       Create from template
                                     </button>
@@ -1469,7 +1534,7 @@ export function renderModels(props: ModelsProps) {
         </div>
       </section>
       <section class="card" style="margin-top: 16px;">
-        <details class="models-collapse">
+        <details class="models-collapse" open>
           <summary class="models-collapse__summary">
             <div>
               <div class="card-title">Model Aliases</div>
