@@ -1168,9 +1168,8 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
       usageLimits.push({
         provider,
         providerDisplayName:
-          provider === "google-gemini-cli"
-            ? "Gemini CLI"
-            : providerStatus.displayName?.trim() || provider,
+          providerStatus.displayName?.trim() ||
+          (provider === "google-gemini-cli" ? "Gemini CLI" : provider),
         model: "--",
         windowType: inferWindowType(window.label),
         windowLabel: window.label,

@@ -1,5 +1,10 @@
 import { html, nothing } from "lit";
 import type { ConfigSnapshot } from "../types.ts";
+import {
+  DEFAULT_MODELS_CATALOG,
+  DEFAULT_PROVIDER_IDS,
+  type DefaultCatalogModel,
+} from "./models-catalog-defaults.ts";
 
 type ModelsProps = {
   connected: boolean;
@@ -63,6 +68,18 @@ type WizardPreset = {
   alias?: string;
 };
 
+type ProviderTemplate = {
+  baseUrl: string;
+  api: string;
+  auth: string;
+};
+
+type CatalogModelRow = {
+  provider: string;
+  id: string;
+  name: string;
+};
+
 const MODEL_API_OPTIONS = [
   "openai-responses",
   "openai-completions",
@@ -114,6 +131,124 @@ const WIZARD_PRESETS: WizardPreset[] = [
     modelName: "Llama 3.1 8B",
   },
 ];
+
+const PROVIDER_TEMPLATES: Record<string, ProviderTemplate> = {
+  "amazon-bedrock": {
+    baseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com",
+    api: "bedrock-converse-stream",
+    auth: "aws-sdk",
+  },
+  anthropic: {
+    baseUrl: "https://api.anthropic.com/v1",
+    api: "anthropic-messages",
+    auth: "api-key",
+  },
+  "azure-openai-responses": {
+    baseUrl: "https://YOUR-RESOURCE.openai.azure.com/openai/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  cerebras: {
+    baseUrl: "https://api.cerebras.ai/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  "github-copilot": {
+    baseUrl: "https://api.githubcopilot.com",
+    api: "github-copilot",
+    auth: "token",
+  },
+  google: {
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    api: "google-generative-ai",
+    auth: "api-key",
+  },
+  "google-antigravity": {
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    api: "google-generative-ai",
+    auth: "api-key",
+  },
+  "google-gemini-cli": {
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    api: "google-generative-ai",
+    auth: "oauth",
+  },
+  "google-vertex": {
+    baseUrl: "https://us-central1-aiplatform.googleapis.com/v1",
+    api: "google-generative-ai",
+    auth: "oauth",
+  },
+  groq: {
+    baseUrl: "https://api.groq.com/openai/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  huggingface: {
+    baseUrl: "https://router.huggingface.co/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  "kimi-coding": {
+    baseUrl: "https://api.kimi.com/coding/",
+    api: "openai-completions",
+    auth: "api-key",
+  },
+  minimax: {
+    baseUrl: "https://api.minimax.io/anthropic",
+    api: "anthropic-messages",
+    auth: "oauth",
+  },
+  "minimax-cn": {
+    baseUrl: "https://api.minimax.chat/v1",
+    api: "openai-completions",
+    auth: "oauth",
+  },
+  mistral: {
+    baseUrl: "https://api.mistral.ai/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  openai: {
+    baseUrl: "https://api.openai.com/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  "openai-codex": {
+    baseUrl: "https://api.openai.com/v1",
+    api: "openai-codex-responses",
+    auth: "api-key",
+  },
+  opencode: {
+    baseUrl: "https://api.opencode.ai/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  openrouter: {
+    baseUrl: "https://openrouter.ai/api/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  "qwen-portal": {
+    baseUrl: "https://portal.qwen.ai/v1",
+    api: "openai-completions",
+    auth: "oauth",
+  },
+  "vercel-ai-gateway": {
+    baseUrl: "https://ai-gateway.vercel.sh/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  xai: {
+    baseUrl: "https://api.x.ai/v1",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+  zai: {
+    baseUrl: "https://api.z.ai/api/paas/v4/",
+    api: "openai-responses",
+    auth: "api-key",
+  },
+};
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -352,6 +487,102 @@ function buildAliasSuggestions(modelIds: string[], aliasRows: AliasRow[]): Alias
   return suggestions;
 }
 
+function parseCatalogFromSuggestions(modelSuggestions: string[]): CatalogModelRow[] {
+  return modelSuggestions
+    .map((entry) => {
+      const value = entry.trim();
+      const slash = value.indexOf("/");
+      if (slash <= 0 || slash >= value.length - 1) {
+        return null;
+      }
+      const provider = value.slice(0, slash).trim();
+      const id = value.slice(slash + 1).trim();
+      if (!provider || !id) {
+        return null;
+      }
+      return { provider, id, name: id };
+    })
+    .filter((row): row is CatalogModelRow => Boolean(row));
+}
+
+function mergeCatalogModels(...groups: Array<CatalogModelRow[] | DefaultCatalogModel[]>): CatalogModelRow[] {
+  const seen = new Set<string>();
+  const out: CatalogModelRow[] = [];
+  for (const group of groups) {
+    for (const row of group) {
+      const provider = asString(row.provider);
+      const id = asString(row.id);
+      const name = asString(row.name) || id;
+      if (!provider || !id) {
+        continue;
+      }
+      const key = `${provider.toLowerCase()}::${id.toLowerCase()}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      out.push({ provider, id, name });
+    }
+  }
+  return out.toSorted((a, b) => {
+    const providerCmp = a.provider.localeCompare(b.provider);
+    if (providerCmp !== 0) {
+      return providerCmp;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function resolveProviderTemplate(providerId: string, current: ProviderRow | undefined): ProviderTemplate {
+  const template = PROVIDER_TEMPLATES[providerId] ?? null;
+  return {
+    baseUrl: current?.baseUrl || template?.baseUrl || "",
+    api: current?.api || template?.api || "openai-responses",
+    auth: current?.auth || template?.auth || "api-key",
+  };
+}
+
+function setEasyModelOptions(
+  form: HTMLFormElement,
+  providerId: string,
+  modelsByProvider: Map<string, CatalogModelRow[]>,
+): void {
+  const modelSelect = form.elements.namedItem("modelId");
+  if (!(modelSelect instanceof HTMLSelectElement)) {
+    return;
+  }
+  const aliasInput = form.elements.namedItem("alias");
+  const models = modelsByProvider.get(providerId) ?? [];
+  const previousModelId = asString(modelSelect.value);
+
+  while (modelSelect.options.length > 0) {
+    modelSelect.remove(0);
+  }
+
+  const placeholder = new Option(models.length > 0 ? "select model" : "no catalog models", "");
+  placeholder.disabled = models.length === 0;
+  placeholder.selected = true;
+  modelSelect.add(placeholder);
+
+  for (const model of models) {
+    const option = new Option(`${model.name} (${model.id})`, model.id);
+    modelSelect.add(option);
+  }
+
+  if (models.some((model) => model.id === previousModelId)) {
+    modelSelect.value = previousModelId;
+  } else if (models.length > 0) {
+    modelSelect.value = models[0].id;
+  }
+
+  if (aliasInput instanceof HTMLInputElement) {
+    const activeModelId = modelSelect.value || models[0]?.id || "";
+    aliasInput.placeholder = activeModelId
+      ? `alias (optional, e.g. ${deriveAliasSeed(`${providerId}/${activeModelId}`)})`
+      : "alias (optional)";
+  }
+}
+
 export function renderModels(props: ModelsProps) {
   const config = (props.configForm ?? props.configSnapshot?.config ?? null) as
     | Record<string, unknown>
@@ -367,15 +598,43 @@ export function renderModels(props: ModelsProps) {
     authByProvider.set(row.provider, (authByProvider.get(row.provider) ?? 0) + 1);
   }
 
+  const catalogModels = mergeCatalogModels(
+    parseCatalogFromSuggestions(props.modelSuggestions),
+    DEFAULT_MODELS_CATALOG,
+  );
+  const catalogProviders = Array.from(
+    new Set([...DEFAULT_PROVIDER_IDS, ...catalogModels.map((entry) => entry.provider)]),
+  ).toSorted((a, b) => a.localeCompare(b));
+  const catalogModelsByProvider = new Map<string, CatalogModelRow[]>();
+  for (const row of catalogModels) {
+    const list = catalogModelsByProvider.get(row.provider) ?? [];
+    list.push(row);
+    catalogModelsByProvider.set(row.provider, list);
+  }
+
   const providerModelIds = providerRows
     .flatMap((provider) => provider.modelRows.map((model) => `${provider.id}/${model.id}`))
     .toSorted((a, b) => a.localeCompare(b));
   const providerModelIdSet = new Set(providerModelIds);
+
+  const activeProviderIds = Array.from(
+    new Set([
+      ...providerRows.map((row) => row.id),
+      ...aliasRows
+        .map((row) => {
+          const slash = row.modelId.indexOf("/");
+          return slash > 0 ? row.modelId.slice(0, slash).trim() : "";
+        })
+        .filter(Boolean),
+    ]),
+  ).toSorted((a, b) => a.localeCompare(b));
+
   const knownModelIds = Array.from(
     new Set([
       ...props.modelSuggestions,
       ...aliasRows.map((row) => row.modelId),
       ...providerModelIds,
+      ...catalogModels.map((entry) => `${entry.provider}/${entry.id}`),
     ]),
   ).toSorted((a, b) => a.localeCompare(b));
   const invalidModelIdAliases = aliasRows.filter((row) => !isQualifiedModelId(row.modelId));
@@ -384,14 +643,18 @@ export function renderModels(props: ModelsProps) {
     (row) => row.alias && isQualifiedModelId(row.modelId) && !providerModelIdSet.has(row.modelId),
   );
   const aliasSuggestions = buildAliasSuggestions(providerModelIds, aliasRows);
+  const defaultEasyProviderId =
+    activeProviderIds[0] ?? catalogProviders[0] ?? providerRows[0]?.id ?? "";
+  const defaultEasyModels = defaultEasyProviderId
+    ? (catalogModelsByProvider.get(defaultEasyProviderId) ?? [])
+    : [];
+  const defaultEasyAliasSeed =
+    defaultEasyProviderId && defaultEasyModels[0]
+      ? deriveAliasSeed(`${defaultEasyProviderId}/${defaultEasyModels[0].id}`)
+      : "model";
 
   return html`
     <section class="models-page">
-      <div class="react-analytics-head">
-        <h2>Models</h2>
-        <span>// provider onboarding, model catalog, alias routing</span>
-      </div>
-
       ${
         !props.connected
           ? html`<div class="callout warning">Disconnected. Connect first to load and edit config.</div>`
@@ -576,12 +839,211 @@ export function renderModels(props: ModelsProps) {
       <section class="card">
         <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
           <div>
-            <div class="card-title">Quick Setup Wizard</div>
-            <div class="card-sub">Add provider + model + alias in one action.</div>
+            <div class="card-title">Easy Setup</div>
+            <div class="card-sub">Pick provider + model, choose auth mode, and optionally set alias.</div>
+          </div>
+          <div class="row" style="gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+            <span class="pill">catalog ${catalogProviders.length}</span>
+            <span class="pill ok">active ${activeProviderIds.length}</span>
+          </div>
+        </div>
+
+        <div class="models-provider-pill-list" style="margin-top: 10px;">
+          ${activeProviderIds.length > 0
+            ? activeProviderIds.map((providerId) => html`<span class="models-provider-pill is-active">${providerId}</span>`)
+            : html`<span class="muted">No active providers in current config.</span>`}
+        </div>
+
+        <form
+          class="models-wizard-form models-wizard-form--easy"
+          @submit=${(event: SubmitEvent) => {
+            event.preventDefault();
+            const form = event.currentTarget as HTMLFormElement;
+            const data = new FormData(form);
+            const providerId = asString(data.get("providerId"));
+            const modelId = asString(data.get("modelId"));
+            const auth = normalizeAuthMode(asString(data.get("auth")));
+            const alias = asString(data.get("alias"));
+            const apiKey = asString(data.get("apiKey"));
+
+            if (!providerId || !modelId) {
+              return;
+            }
+            if (!isProviderIdValid(providerId)) {
+              alert("Provider id can use letters/numbers and . _ - only (no spaces).");
+              return;
+            }
+            if (!isModelIdValid(modelId)) {
+              alert("Model id cannot contain spaces.");
+              return;
+            }
+
+            const catalogRows = catalogModelsByProvider.get(providerId) ?? [];
+            const selected = catalogRows.find((row) => row.id === modelId);
+            if (!selected) {
+              alert("Selected provider/model is not in the catalog list. Try re-selecting provider.");
+              return;
+            }
+
+            const template = resolveProviderTemplate(providerId, providerById.get(providerId));
+            if (!template.baseUrl) {
+              alert(
+                "No default base URL template for this provider yet. Use Advanced Wizard or Providers section.",
+              );
+              return;
+            }
+
+            const qualifiedModelId = `${providerId}/${selected.id}`;
+            if (alias) {
+              if (!isAliasValid(alias)) {
+                alert("Alias should start with a letter and contain only letters/numbers/._-.");
+                return;
+              }
+              const conflict = aliasRows.find(
+                (row) =>
+                  row.modelId !== qualifiedModelId && row.alias.toLowerCase() === alias.toLowerCase(),
+              );
+              if (conflict) {
+                alert(`Alias ${alias} is already used by ${conflict.modelId}.`);
+                return;
+              }
+            }
+
+            const provider = providerById.get(providerId);
+            const nextProvider = createProviderObject({
+              current: provider?.raw ?? null,
+              baseUrl: template.baseUrl,
+              api: template.api,
+              auth: auth || template.auth,
+              apiKey,
+            });
+            nextProvider.models = upsertModelRows(
+              provider?.modelRows ?? [],
+              selected.id,
+              selected.name || selected.id,
+              null,
+              null,
+            );
+            props.onPatch(["models", "providers", providerId], nextProvider);
+
+            if (alias) {
+              props.onPatch(["agents", "defaults", "models", qualifiedModelId, "alias"], alias);
+            }
+
+            const normalizedAuth = normalizeAuthMode(auth || template.auth);
+            if (
+              AUTH_PROFILE_REQUIRED_MODES.has(normalizedAuth) &&
+              (authByProvider.get(providerId) ?? 0) === 0
+            ) {
+              props.onPatch(["auth", "profiles", `${providerId}:default`], {
+                provider: providerId,
+                mode: normalizedAuth,
+              });
+            }
+
+            form.reset();
+            const providerSelect = form.elements.namedItem("providerId");
+            if (providerSelect instanceof HTMLSelectElement) {
+              providerSelect.value = providerId;
+              setEasyModelOptions(form, providerId, catalogModelsByProvider);
+            }
+          }}
+        >
+          <select
+            name="providerId"
+            required
+            @change=${(event: Event) => {
+              const select = event.currentTarget as HTMLSelectElement;
+              const form = select.form;
+              if (!form) {
+                return;
+              }
+              setEasyModelOptions(form, asString(select.value), catalogModelsByProvider);
+              const authSelect = form.elements.namedItem("auth");
+              if (authSelect instanceof HTMLSelectElement) {
+                const template = resolveProviderTemplate(asString(select.value), providerById.get(asString(select.value)));
+                authSelect.value = template.auth || authSelect.value;
+              }
+            }}
+          >
+            ${catalogProviders.map(
+              (providerId) => html`
+                <option
+                  value=${providerId}
+                  ?selected=${providerId === defaultEasyProviderId}
+                >
+                  ${providerId}${activeProviderIds.includes(providerId) ? " (active)" : ""}
+                </option>
+              `,
+            )}
+          </select>
+          <select
+            name="modelId"
+            required
+            @change=${(event: Event) => {
+              const select = event.currentTarget as HTMLSelectElement;
+              const form = select.form;
+              if (!form) {
+                return;
+              }
+              const providerSelect = form.elements.namedItem("providerId");
+              const aliasInput = form.elements.namedItem("alias");
+              if (!(providerSelect instanceof HTMLSelectElement) || !(aliasInput instanceof HTMLInputElement)) {
+                return;
+              }
+              const providerId = asString(providerSelect.value);
+              const modelId = asString(select.value);
+              aliasInput.placeholder = modelId
+                ? `alias (optional, e.g. ${deriveAliasSeed(`${providerId}/${modelId}`)})`
+                : "alias (optional)";
+            }}
+          >
+            ${defaultEasyModels.length > 0
+              ? defaultEasyModels.map(
+                  (row, idx) =>
+                    html`<option value=${row.id} ?selected=${idx === 0}>${row.name} (${row.id})</option>`,
+                )
+              : html`<option value="" disabled selected>no catalog models</option>`}
+          </select>
+          <select name="auth">
+            ${AUTH_MODE_OPTIONS.map((mode) => {
+              const recommended = resolveProviderTemplate(
+                defaultEasyProviderId,
+                providerById.get(defaultEasyProviderId),
+              ).auth;
+              return html`<option value=${mode} ?selected=${mode === recommended}>${mode}</option>`;
+            })}
+          </select>
+          <input name="apiKey" placeholder="api key/env ref (optional)" />
+          <input
+            name="alias"
+            placeholder="alias (optional, e.g. ${defaultEasyAliasSeed})"
+            pattern="[A-Za-z][A-Za-z0-9._-]*"
+            title="start with letter; use letters/numbers/._-"
+          />
+          <button class="btn" type="submit">Add Provider + Model</button>
+        </form>
+
+        <div class="models-provider-pill-list models-provider-pill-list--catalog">
+          ${catalogProviders.map(
+            (providerId) => html`
+              <span class="models-provider-pill ${activeProviderIds.includes(providerId) ? "is-active" : ""}">
+                ${providerId}
+              </span>
+            `,
+          )}
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
+          <div>
+            <div class="card-title">Advanced Setup Wizard</div>
+            <div class="card-sub">Manual provider/model fields for custom endpoints and edge cases.</div>
           </div>
         </div>
         <form
-          class="models-wizard-form"
+          class="models-wizard-form models-wizard-form--advanced"
           @submit=${(event: SubmitEvent) => {
             event.preventDefault();
             const form = event.currentTarget as HTMLFormElement;
@@ -726,7 +1188,7 @@ export function renderModels(props: ModelsProps) {
             pattern="[A-Za-z][A-Za-z0-9._-]*"
             title="start with letter; use letters/numbers/._-"
           />
-          <button class="btn" type="submit">Run Wizard</button>
+          <button class="btn" type="submit">Run Advanced Wizard</button>
         </form>
       </section>
 

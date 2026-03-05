@@ -2,7 +2,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import { keyed } from "lit/directives/keyed.js";
 import "../components/echart-host.ts";
 import { buildReactTokenUsageBarOption } from "./charts/options.ts";
-import { displayTimeZoneLabel } from "./charts/timezone.ts";
+import { displayTimeZoneLabel, formatForDisplayTz } from "./charts/timezone.ts";
 import type {
   SessionLogEntry,
   SessionLogRole,
@@ -91,29 +91,33 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
-function formatResetTime(resetAt: string | null): string {
+function formatResetTime(
+  resetAt: string | null,
+  displayTimeZone: UsageProps["displayTimeZone"],
+): string {
   if (!resetAt) {
     return "--";
   }
-  const date = new Date(resetAt);
-  if (!Number.isFinite(date.getTime())) {
+  const parsed = Date.parse(resetAt);
+  if (!Number.isFinite(parsed)) {
     return "--";
   }
-  return date.toLocaleTimeString("en-US", {
+  return formatForDisplayTz(parsed, displayTimeZone, {
+    month: "short",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function formatUpdatedAt(updatedAt: number | null): string {
+function formatUpdatedAt(
+  updatedAt: number | null,
+  displayTimeZone: UsageProps["displayTimeZone"],
+): string {
   if (!updatedAt || !Number.isFinite(updatedAt)) {
     return "--";
   }
-  const date = new Date(updatedAt);
-  if (!Number.isFinite(date.getTime())) {
-    return "--";
-  }
-  return date.toLocaleString("en-US", {
+  return formatForDisplayTz(updatedAt, displayTimeZone, {
     month: "short",
     day: "2-digit",
     hour: "2-digit",
@@ -682,7 +686,7 @@ export function renderUsage(props: UsageProps) {
                                     </div>
                                   </td>
                                   <td>${entry.limit > 0 ? formatTokens(Math.max(0, entry.remaining)) : "--"}</td>
-                                  <td>${formatResetTime(entry.resetAt)}</td>
+                                  <td>${formatResetTime(entry.resetAt, props.displayTimeZone)}</td>
                                   <td>
                                     <div class="react-telemetry">
                                       <span class="react-source-pill">${entry.source}</span>
@@ -730,7 +734,7 @@ export function renderUsage(props: UsageProps) {
           : html`<div class="callout">Limit prediction is disabled. Only provider-reported limit windows are shown.</div>`
       }
       <div class="muted" style="font-size: 11px;">
-        Last updated: ${formatUpdatedAt(snapshotUpdatedAt)} · freshness: ${snapshotFreshnessMinutes}m · display timezone:
+        Last updated: ${formatUpdatedAt(snapshotUpdatedAt, props.displayTimeZone)} · freshness: ${snapshotFreshnessMinutes}m · display timezone:
         ${displayTimeZoneLabel(props.displayTimeZone)} · auto refresh: 20s (visible tab)
       </div>
     </section>

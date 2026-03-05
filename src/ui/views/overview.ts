@@ -135,6 +135,8 @@ export function renderOverview(props: OverviewProps) {
   const uptime = typeof uptimeMs === "number" ? formatDurationHuman(uptimeMs) : "n/a";
   const statusText = props.connected ? "online" : "offline";
   const cronStatus = props.cronEnabled ? "running" : "paused";
+  const hasSnapshot24h = Boolean(snapshot24h);
+  const snapshotWindowLabel = hasSnapshot24h ? "24h" : "selected range";
   const messages24h = snapshot24h?.messageCount ?? model.snapshot.messageCount;
   const toolCalls24h = snapshot24h?.toolCallCount ?? model.snapshot.toolCallCount;
   const tokens24h = snapshot24h?.totalTokens ?? model.snapshot.totalTokens;
@@ -176,7 +178,7 @@ export function renderOverview(props: OverviewProps) {
         <article class="react-kpi-card">
           <div class="react-kpi-head">
             <div>
-              <label>Messages (24h)</label>
+              <label>Messages (${snapshotWindowLabel})</label>
               <strong>${Math.max(0, messages24h).toLocaleString()}</strong>
             </div>
             <div class="react-kpi-side">
@@ -188,7 +190,7 @@ export function renderOverview(props: OverviewProps) {
         <article class="react-kpi-card">
           <div class="react-kpi-head">
             <div>
-              <label>Tokens (24h)</label>
+              <label>Tokens (${snapshotWindowLabel})</label>
               <strong>${formatTokens(tokens24h)}</strong>
             </div>
             <div class="react-kpi-side">
@@ -200,7 +202,7 @@ export function renderOverview(props: OverviewProps) {
         <article class="react-kpi-card">
           <div class="react-kpi-head">
             <div>
-              <label>Tool Calls (24h)</label>
+              <label>Tool Calls (${snapshotWindowLabel})</label>
               <strong>${Math.max(0, toolCalls24h).toLocaleString()}</strong>
             </div>
             <div class="react-kpi-side">
@@ -212,7 +214,7 @@ export function renderOverview(props: OverviewProps) {
         <article class="react-kpi-card">
           <div class="react-kpi-head">
             <div>
-              <label>Sessions (24h)</label>
+              <label>Sessions (${snapshotWindowLabel})</label>
               <strong>${Math.max(0, sessions24h).toLocaleString()}</strong>
             </div>
             <div class="react-kpi-side">
@@ -233,7 +235,7 @@ export function renderOverview(props: OverviewProps) {
           }
         </article>
         <article class="react-chart-card react-chart-card--total-cost24h">
-          <h3>Total Cost (24h)</h3>
+          <h3>Total Cost (${snapshotWindowLabel})</h3>
           <div class="react-cost-snapshot react-cost-snapshot--total24h">
             <div class="react-cost-snapshot__head">
               <strong>${formatUsd(cost24h)}</strong>

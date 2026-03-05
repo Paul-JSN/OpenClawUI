@@ -4488,6 +4488,36 @@
   gap: 8px;
 }
 
+.models-provider-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.models-provider-pill-list--catalog {
+  margin-top: 10px;
+  max-height: 150px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.models-provider-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel) 70%, transparent);
+}
+
+.models-provider-pill.is-active {
+  color: var(--ok);
+  border-color: color-mix(in oklab, var(--ok) 45%, var(--border));
+  background: color-mix(in oklab, var(--ok) 12%, transparent);
+}
+
 .models-provider-card {
   border: 1px solid var(--border);
   background: var(--secondary);
