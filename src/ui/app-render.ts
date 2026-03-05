@@ -51,7 +51,11 @@ import {
   updateExecApprovalsFormValue,
 } from "./controllers/exec-approvals.ts";
 import { loadLogs } from "./controllers/logs.ts";
-import { runModelsOAuthWizard } from "./controllers/models-oauth.ts";
+import {
+  cancelModelsOAuthWizard,
+  startModelsOAuthWizard,
+  submitModelsOAuthWizardStep,
+} from "./controllers/models-oauth.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import { deleteSessionAndRefresh, loadSessions, patchSession } from "./controllers/sessions.ts";
@@ -557,15 +561,29 @@ export function renderApp(state: AppViewState) {
                 configSnapshot: state.configSnapshot,
                 modelSuggestions: state.cronModelSuggestions,
                 oauthRunning: state.modelsOauthRunning,
+                oauthSessionId: state.modelsOauthSessionId,
+                oauthStep: state.modelsOauthStep,
+                oauthStepInput: state.modelsOauthStepInput,
+                oauthStepUrl: state.modelsOauthStepUrl,
+                oauthStatus: state.modelsOauthStatus,
                 onPatch: (path, value) => updateConfigFormValue(state, path, value),
                 onRemove: (path) => removeConfigFormValue(state, path),
                 onReload: () => loadConfig(state),
                 onRunOAuthWizard: (providerId, method) =>
-                  runModelsOAuthWizard(state, {
+                  startModelsOAuthWizard(state, {
                     providerId,
                     method,
                     onReload: () => loadConfig(state),
                   }),
+                onChangeOAuthInput: (value) => {
+                  state.modelsOauthStepInput = value;
+                },
+                onSubmitOAuthStep: (value) =>
+                  submitModelsOAuthWizardStep(state, {
+                    value,
+                    onReload: () => loadConfig(state),
+                  }),
+                onCancelOAuthWizard: () => cancelModelsOAuthWizard(state),
                 onSave: () => saveConfig(state),
                 onApply: () => applyConfig(state),
                 onOpenConfig: () => state.setTab("config"),

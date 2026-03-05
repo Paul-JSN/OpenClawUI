@@ -4482,7 +4482,8 @@
 }
 
 .models-wizard-form--oauth {
-  align-items: flex-end;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 .models-wizard-form input,
@@ -4502,6 +4503,54 @@
 .models-oauth-command-preview code {
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.models-oauth-status {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--secondary) 76%, transparent);
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.models-oauth-live-step {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  background: color-mix(in oklab, var(--secondary) 82%, transparent);
+  display: grid;
+  gap: 8px;
+}
+
+.models-oauth-live-step__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.models-oauth-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.models-oauth-link-row code {
+  font-size: 11px;
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.models-wizard-form--oauth-step {
+  margin-top: 0;
+  align-items: center;
+}
+
+.models-wizard-form--oauth-step input {
+  min-width: 280px;
+  flex: 1 1 320px;
 }
 
 .models-multi-select-wrap {

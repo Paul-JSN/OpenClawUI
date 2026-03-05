@@ -54,6 +54,7 @@ import type { AppViewState } from "./app-view-state.ts";
 import { normalizeAssistantIdentity } from "./assistant-identity.ts";
 import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity.ts";
 import type { CronFieldErrors } from "./controllers/cron.ts";
+import type { ModelsOAuthUiStep } from "./controllers/models-oauth.ts";
 import type { DevicePairingList } from "./controllers/devices.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exec-approvals.ts";
@@ -201,6 +202,14 @@ export class OpenClawApp extends LitElement {
   @state() configActiveSubsection: string | null = null;
 
   @state() modelsOauthRunning = false;
+  @state() modelsOauthSessionId: string | null = null;
+  @state() modelsOauthStep: ModelsOAuthUiStep | null = null;
+  @state() modelsOauthStepInput = "";
+  @state() modelsOauthStepUrl: string | null = null;
+  @state() modelsOauthStatus: string | null = null;
+  @state() modelsOauthProviderHint = "";
+  @state() modelsOauthMethodHint = "";
+  @state() modelsOauthStepCount = 0;
 
   @state() channelsLoading = false;
   @state() channelsSnapshot: ChannelsStatusSnapshot | null = null;

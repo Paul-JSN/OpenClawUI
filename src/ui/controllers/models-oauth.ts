@@ -8,7 +8,7 @@ type WizardStepOption = {
   hint?: string;
 };
 
-type WizardStep = {
+export type ModelsOAuthUiStep = {
   id: string;
   type: WizardStepType;
   title?: string;
@@ -23,36 +23,47 @@ type WizardStep = {
 type WizardStartResult = {
   sessionId: string;
   done: boolean;
-  step?: WizardStep;
+  step?: ModelsOAuthUiStep;
   status?: "running" | "done" | "cancelled" | "error";
   error?: string;
 };
 
 type WizardNextResult = {
   done: boolean;
-  step?: WizardStep;
+  step?: ModelsOAuthUiStep;
   status?: "running" | "done" | "cancelled" | "error";
   error?: string;
 };
 
-type WizardAnswerResult =
-  | { kind: "answer"; value: unknown }
-  | { kind: "cancel" };
+type WizardResult = WizardStartResult | WizardNextResult;
 
 export type ModelsOAuthWizardState = {
   client: GatewayBrowserClient | null;
   connected: boolean;
   modelsOauthRunning: boolean;
+  modelsOauthSessionId: string | null;
+  modelsOauthStep: ModelsOAuthUiStep | null;
+  modelsOauthStepInput: string;
+  modelsOauthStepUrl: string | null;
+  modelsOauthStatus: string | null;
+  modelsOauthProviderHint: string;
+  modelsOauthMethodHint: string;
+  modelsOauthStepCount: number;
   lastError: string | null;
 };
 
-export type RunModelsOAuthWizardParams = {
+export type StartModelsOAuthWizardParams = {
   providerId: string;
   method?: string;
   onReload?: () => Promise<void> | void;
 };
 
-const MAX_WIZARD_STEPS = 220;
+export type SubmitModelsOAuthWizardStepParams = {
+  value?: string;
+  onReload?: () => Promise<void> | void;
+};
+
+const MAX_WIZARD_STEPS = 280;
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -62,11 +73,11 @@ function toLower(value: unknown): string {
   return asString(value).toLowerCase();
 }
 
-function buildStepMessage(step: WizardStep): string {
+function buildStepMessage(step: ModelsOAuthUiStep): string {
   const title = asString(step.title);
   const message = asString(step.message);
   if (title && message) {
-    return `${title}\n\n${message}`;
+    return `${title}: ${message}`;
   }
   return title || message || step.type;
 }
@@ -115,7 +126,7 @@ function extractProviderHints(providerId: string, method?: string): {
 }
 
 function findSelectDefaultIndex(params: {
-  step: WizardStep;
+  step: ModelsOAuthUiStep;
   providerHint: string;
   methodHint: string;
 }): number {
@@ -160,229 +171,330 @@ function findSelectDefaultIndex(params: {
   return initialIndex >= 0 ? initialIndex : 0;
 }
 
-function extractActionUrl(step: WizardStep): string {
+function extractActionUrl(step: ModelsOAuthUiStep): string {
   const source = [asString(step.message), asString(step.title), asString(step.initialValue)].join("\n");
-  const match = source.match(/https?:\/\/[^\s)]+/i);
-  return match ? match[0] : "";
+  const matches = source.match(/https?:\/\/[^\s)]+/gi) ?? [];
+  if (matches.length === 0) {
+    return "";
+  }
+
+  const urls = matches.map((raw) => raw.replace(/[),.;]+$/g, "").trim()).filter(Boolean);
+  const score = (url: string): number => {
+    const lower = url.toLowerCase();
+    let value = 0;
+    if (lower.includes("docs.openclaw.ai")) {
+      value -= 100;
+    }
+    if (lower.includes("oauth") || lower.includes("authorize") || lower.includes("consent")) {
+      value += 30;
+    }
+    if (lower.includes("login") || lower.includes("signin")) {
+      value += 20;
+    }
+    if (lower.includes("accounts.google.com") || lower.includes("github.com") || lower.includes("qwen")) {
+      value += 10;
+    }
+    if (lower.includes("127.0.0.1") || lower.includes("localhost")) {
+      value -= 10;
+    }
+    return value;
+  };
+
+  return [...urls].toSorted((a, b) => score(b) - score(a))[0] ?? urls[0] ?? "";
 }
 
-function askSelect(params: {
-  step: WizardStep;
-  providerHint: string;
-  methodHint: string;
-}): WizardAnswerResult {
-  const options = Array.isArray(params.step.options) ? params.step.options : [];
-  if (options.length === 0) {
-    return { kind: "answer", value: params.step.initialValue ?? "" };
+function looksLikeManualCodePrompt(step: ModelsOAuthUiStep): boolean {
+  const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`;
+  if (!text) {
+    return false;
   }
-
-  const defaultIndex = findSelectDefaultIndex(params);
-  const menu = options
-    .map((option, idx) => `${idx + 1}. ${option.label}${option.hint ? ` — ${option.hint}` : ""}`)
-    .join("\n");
-  const input = window.prompt(
-    `${buildStepMessage(params.step)}\n\n${menu}\n\nPick option number (1-${options.length}).`,
-    String(defaultIndex + 1),
-  );
-
-  if (input === null) {
-    return { kind: "cancel" };
-  }
-
-  const parsed = Number.parseInt(input.trim(), 10);
-  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= options.length) {
-    return { kind: "answer", value: options[parsed - 1].value };
-  }
-
-  return { kind: "answer", value: options[defaultIndex]?.value ?? options[0].value };
+  return ["redirect", "paste", "code", "callback", "verification", "authorize", "token", "url"]
+    .some((needle) => text.includes(needle));
 }
 
-function askMultiSelect(step: WizardStep): WizardAnswerResult {
-  const options = Array.isArray(step.options) ? step.options : [];
-  if (options.length === 0) {
-    return { kind: "answer", value: Array.isArray(step.initialValue) ? step.initialValue : [] };
+function defaultManualInput(step: ModelsOAuthUiStep, state: ModelsOAuthWizardState): string {
+  const initial = asString(step.initialValue);
+  const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`;
+  if (text.includes("auth method") || text.includes("method")) {
+    return state.modelsOauthMethodHint || initial;
   }
-  const menu = options
-    .map((option, idx) => `${idx + 1}. ${option.label}${option.hint ? ` — ${option.hint}` : ""}`)
-    .join("\n");
-  const defaultIndices = Array.isArray(step.initialValue)
-    ? step.initialValue
-        .map((entry) => options.findIndex((option) => option.value === entry))
-        .filter((idx) => idx >= 0)
-        .map((idx) => String(idx + 1))
-        .join(",")
-    : "";
-
-  const input = window.prompt(
-    `${buildStepMessage(step)}\n\n${menu}\n\nEnter comma-separated numbers (e.g. 1,3).`,
-    defaultIndices,
-  );
-  if (input === null) {
-    return { kind: "cancel" };
+  if (text.includes("provider")) {
+    return state.modelsOauthProviderHint || initial;
   }
-
-  const values = input
-    .split(",")
-    .map((part) => Number.parseInt(part.trim(), 10))
-    .filter((idx) => Number.isFinite(idx) && idx >= 1 && idx <= options.length)
-    .map((idx) => options[idx - 1]?.value)
-    .filter((value) => value !== undefined);
-
-  return { kind: "answer", value: values };
+  return initial;
 }
 
-function askWizardStep(params: {
-  step: WizardStep;
-  providerHint: string;
-  methodHint: string;
-}): WizardAnswerResult {
-  const { step } = params;
-
+function resolveAutoAnswer(step: ModelsOAuthUiStep, state: ModelsOAuthWizardState): unknown | null {
   switch (step.type) {
     case "note":
-    case "progress": {
-      const proceed = window.confirm(`${buildStepMessage(step)}\n\nOK = continue, Cancel = stop`);
-      return proceed ? { kind: "answer", value: true } : { kind: "cancel" };
-    }
-    case "confirm": {
-      const accepted = window.confirm(`${buildStepMessage(step)}\n\nOK = yes, Cancel = no`);
-      return { kind: "answer", value: accepted };
+    case "progress":
+      return true;
+    case "confirm":
+      return true;
+    case "multiselect":
+      return Array.isArray(step.initialValue) ? step.initialValue : [];
+    case "select": {
+      const options = Array.isArray(step.options) ? step.options : [];
+      if (options.length === 0) {
+        return step.initialValue ?? "";
+      }
+      const idx = findSelectDefaultIndex({
+        step,
+        providerHint: state.modelsOauthProviderHint,
+        methodHint: state.modelsOauthMethodHint,
+      });
+      return options[idx]?.value ?? options[0].value;
     }
     case "text": {
-      const defaultValue = asString(step.initialValue) ||
-        (toLower(step.message).includes("method") ? params.methodHint : "") ||
-        (toLower(step.message).includes("provider") ? params.providerHint : "");
-      const value = window.prompt(buildStepMessage(step), defaultValue);
-      if (value === null) {
-        return { kind: "cancel" };
+      const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`;
+      if (looksLikeManualCodePrompt(step)) {
+        return null;
       }
-      return { kind: "answer", value };
+      if (text.includes("auth method") || text.includes("method")) {
+        return state.modelsOauthMethodHint || asString(step.initialValue) || null;
+      }
+      if (text.includes("model/auth provider") || text.includes("provider")) {
+        return state.modelsOauthProviderHint || asString(step.initialValue) || null;
+      }
+      const initial = asString(step.initialValue);
+      return initial || null;
     }
-    case "multiselect":
-      return askMultiSelect(step);
-    case "select":
-      return askSelect(params);
-    case "action": {
-      const url = extractActionUrl(step);
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
-      const value = window.prompt(
-        `${buildStepMessage(step)}\n\n${
-          url ? `Opened: ${url}\n` : ""
-        }Press OK to continue. If a code/value is requested, paste it below.`,
-        asString(step.initialValue),
-      );
-      if (value === null) {
-        return { kind: "cancel" };
-      }
-      return { kind: "answer", value: value || true };
-    }
+    case "action":
+      return null;
     default:
-      return { kind: "answer", value: true };
+      return true;
   }
+}
+
+function clearModelsOAuthStep(state: ModelsOAuthWizardState) {
+  state.modelsOauthStep = null;
+  state.modelsOauthStepInput = "";
+}
+
+function clearModelsOAuthSession(state: ModelsOAuthWizardState) {
+  clearModelsOAuthStep(state);
+  state.modelsOauthSessionId = null;
+  state.modelsOauthStepCount = 0;
+  state.modelsOauthStepUrl = null;
 }
 
 function formatWizardEndMessage(result: { status?: string; error?: string }): string {
   if (result.status === "done" || !result.status) {
-    return "OAuth wizard finished.";
+    return "OAuth 연결 완료.";
   }
   if (result.status === "cancelled") {
-    return "OAuth wizard was cancelled.";
+    return "OAuth 진행이 취소됨.";
   }
   if (result.status === "error") {
-    return `OAuth wizard failed: ${result.error ?? "unknown error"}`;
+    return `OAuth 실패: ${result.error ?? "unknown error"}`;
   }
-  return `OAuth wizard stopped: ${result.status}`;
+  return `OAuth 종료: ${result.status}`;
 }
 
-export async function runModelsOAuthWizard(
+async function finishWizard(
   state: ModelsOAuthWizardState,
-  params: RunModelsOAuthWizardParams,
+  result: { status?: string; error?: string },
+  onReload?: () => Promise<void> | void,
+): Promise<void> {
+  const message = formatWizardEndMessage(result);
+  clearModelsOAuthSession(state);
+
+  if (result.status === "done" || !result.status) {
+    try {
+      await onReload?.();
+      state.modelsOauthStatus = `${message} auth.profiles 갱신 완료.`;
+    } catch (err) {
+      state.modelsOauthStatus = `${message} (reload failed: ${String(err)})`;
+    }
+    return;
+  }
+
+  state.modelsOauthStatus = message;
+}
+
+async function processWizardUntilPause(
+  state: ModelsOAuthWizardState,
+  initialResult: WizardResult,
+  onReload?: () => Promise<void> | void,
+): Promise<void> {
+  const client = state.client;
+  const sessionId = state.modelsOauthSessionId;
+  if (!client || !sessionId) {
+    throw new Error("OAuth wizard session is not initialized.");
+  }
+
+  let result: WizardResult = initialResult;
+  while (!result.done) {
+    state.modelsOauthStepCount += 1;
+    if (state.modelsOauthStepCount > MAX_WIZARD_STEPS) {
+      throw new Error("OAuth wizard exceeded max step limit.");
+    }
+
+    const step = result.step;
+    if (!step) {
+      result = await client.request<WizardNextResult>("wizard.next", { sessionId });
+      continue;
+    }
+
+    const embeddedUrl = extractActionUrl(step);
+    if (embeddedUrl && state.modelsOauthStepUrl !== embeddedUrl) {
+      state.modelsOauthStepUrl = embeddedUrl;
+      window.open(embeddedUrl, "_blank", "noopener,noreferrer");
+    }
+
+    const autoValue = resolveAutoAnswer(step, state);
+    if (autoValue !== null) {
+      result = await client.request<WizardNextResult>("wizard.next", {
+        sessionId,
+        answer: {
+          stepId: step.id,
+          value: autoValue,
+        },
+      });
+      continue;
+    }
+
+    state.modelsOauthStep = step;
+    state.modelsOauthStepInput = defaultManualInput(step, state);
+    state.modelsOauthStepUrl = embeddedUrl || state.modelsOauthStepUrl || null;
+    state.modelsOauthStatus = buildStepMessage(step);
+    state.modelsOauthRunning = false;
+    return;
+  }
+
+  await finishWizard(state, result, onReload);
+  state.modelsOauthRunning = false;
+}
+
+function normalizeManualAnswer(step: ModelsOAuthUiStep, value: string | undefined): unknown {
+  const trimmed = asString(value);
+  if (step.type === "action") {
+    return trimmed || true;
+  }
+  if (step.type === "confirm") {
+    const normalized = trimmed.toLowerCase();
+    if (!normalized) {
+      return true;
+    }
+    return !["false", "0", "no", "n"].includes(normalized);
+  }
+  return trimmed;
+}
+
+export async function startModelsOAuthWizard(
+  state: ModelsOAuthWizardState,
+  params: StartModelsOAuthWizardParams,
 ): Promise<void> {
   if (!state.client || !state.connected || state.modelsOauthRunning) {
     return;
   }
 
-  const introConfirmed = window.confirm(
-    [
-      "This launches the gateway onboarding wizard inside the UI.",
-      "",
-      "To run OAuth, pick MODIFY flow and choose your provider/method when asked.",
-      "Keep existing gateway/channels/skills values unless you intentionally want to change them.",
-      "",
-      "Continue?",
-    ].join("\n"),
-  );
-  if (!introConfirmed) {
-    return;
+  if (state.modelsOauthSessionId) {
+    await cancelModelsOAuthWizard(state);
   }
 
+  const hints = extractProviderHints(params.providerId, params.method);
+  state.modelsOauthProviderHint = hints.providerHint;
+  state.modelsOauthMethodHint = hints.methodHint;
+  state.modelsOauthStatus = "OAuth wizard 시작 중...";
   state.modelsOauthRunning = true;
   state.lastError = null;
+  clearModelsOAuthSession(state);
 
-  const { providerHint, methodHint } = extractProviderHints(params.providerId, params.method);
   const client = state.client;
-  let sessionId: string | null = null;
 
   try {
-    let result = await client.request<WizardStartResult>("wizard.start", { mode: "local" });
-    sessionId = asString(result.sessionId);
-
-    let steps = 0;
-    while (!result.done) {
-      if (steps >= MAX_WIZARD_STEPS) {
-        throw new Error("OAuth wizard exceeded max step limit. Please retry.");
-      }
-      steps += 1;
-
-      const step = result.step;
-      if (!step) {
-        result = {
-          sessionId,
-          ...(await client.request<WizardNextResult>("wizard.next", { sessionId })),
-        };
-        continue;
-      }
-
-      const answer = askWizardStep({ step, providerHint, methodHint });
-      if (answer.kind === "cancel") {
-        await client.request("wizard.cancel", { sessionId });
-        window.alert("OAuth wizard cancelled.");
-        return;
-      }
-
-      result = {
-        sessionId,
-        ...(await client.request<WizardNextResult>("wizard.next", {
-          sessionId,
-          answer: {
-            stepId: step.id,
-            value: answer.value,
-          },
-        })),
-      };
+    const result = await client.request<WizardStartResult>("wizard.start", { mode: "local" });
+    const sessionId = asString(result.sessionId);
+    if (!sessionId) {
+      throw new Error("wizard.start returned empty session id");
     }
-
-    const endMessage = formatWizardEndMessage(result);
-    if (result.status === "done" || !result.status) {
-      window.alert(`${endMessage} Reloading auth profiles…`);
-      await params.onReload?.();
-      return;
-    }
-
-    window.alert(endMessage);
+    state.modelsOauthSessionId = sessionId;
+    await processWizardUntilPause(state, result, params.onReload);
   } catch (err) {
     state.lastError = String(err);
-    window.alert(`OAuth wizard run failed: ${String(err)}`);
-    if (sessionId) {
+    state.modelsOauthStatus = `OAuth wizard 실행 실패: ${String(err)}`;
+    state.modelsOauthRunning = false;
+    if (state.modelsOauthSessionId) {
       try {
-        await client.request("wizard.cancel", { sessionId });
+        await client.request("wizard.cancel", { sessionId: state.modelsOauthSessionId });
       } catch {
         // best effort cleanup
       }
     }
+    clearModelsOAuthSession(state);
+  }
+}
+
+export async function submitModelsOAuthWizardStep(
+  state: ModelsOAuthWizardState,
+  params: SubmitModelsOAuthWizardStepParams = {},
+): Promise<void> {
+  if (!state.client || !state.connected || state.modelsOauthRunning) {
+    return;
+  }
+  if (!state.modelsOauthSessionId || !state.modelsOauthStep) {
+    return;
+  }
+
+  const client = state.client;
+  const sessionId = state.modelsOauthSessionId;
+  const step = state.modelsOauthStep;
+
+  state.modelsOauthRunning = true;
+  state.lastError = null;
+  state.modelsOauthStatus = "OAuth step 제출 중...";
+
+  const answerValue = normalizeManualAnswer(step, params.value ?? state.modelsOauthStepInput);
+  clearModelsOAuthStep(state);
+
+  try {
+    const result = await client.request<WizardNextResult>("wizard.next", {
+      sessionId,
+      answer: {
+        stepId: step.id,
+        value: answerValue,
+      },
+    });
+
+    await processWizardUntilPause(state, result, params.onReload);
+  } catch (err) {
+    state.lastError = String(err);
+    state.modelsOauthStatus = `OAuth step 실패: ${String(err)}`;
+    state.modelsOauthRunning = false;
+    if (state.modelsOauthSessionId) {
+      try {
+        await client.request("wizard.cancel", { sessionId: state.modelsOauthSessionId });
+      } catch {
+        // best effort cleanup
+      }
+    }
+    clearModelsOAuthSession(state);
+  }
+}
+
+export async function cancelModelsOAuthWizard(state: ModelsOAuthWizardState): Promise<void> {
+  const client = state.client;
+  const sessionId = state.modelsOauthSessionId;
+
+  if (!sessionId) {
+    state.modelsOauthRunning = false;
+    state.modelsOauthStatus = "OAuth wizard 취소됨.";
+    clearModelsOAuthSession(state);
+    return;
+  }
+
+  state.modelsOauthRunning = true;
+
+  try {
+    if (client && state.connected) {
+      await client.request("wizard.cancel", { sessionId });
+    }
+  } catch (err) {
+    state.lastError = String(err);
   } finally {
     state.modelsOauthRunning = false;
+    state.modelsOauthStatus = "OAuth wizard 취소됨.";
+    clearModelsOAuthSession(state);
   }
 }

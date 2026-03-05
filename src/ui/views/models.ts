@@ -16,10 +16,24 @@ type ModelsProps = {
   configSnapshot: ConfigSnapshot | null;
   modelSuggestions: string[];
   oauthRunning?: boolean;
+  oauthSessionId?: string | null;
+  oauthStep?: {
+    id: string;
+    type: string;
+    title?: string;
+    message?: string;
+    placeholder?: string;
+  } | null;
+  oauthStepInput?: string;
+  oauthStepUrl?: string | null;
+  oauthStatus?: string | null;
   onPatch: (path: Array<string | number>, value: unknown) => void;
   onRemove: (path: Array<string | number>) => void;
   onReload: () => void;
   onRunOAuthWizard?: (providerId: string, method?: string) => void | Promise<void>;
+  onChangeOAuthInput?: (value: string) => void;
+  onSubmitOAuthStep?: (value?: string) => void | Promise<void>;
+  onCancelOAuthWizard?: () => void | Promise<void>;
   onSave: () => void;
   onApply: () => void;
   onOpenConfig: () => void;
@@ -672,7 +686,6 @@ function resolveAuthModeOptionsForProvider(params: {
   const modes: string[] = [];
 
   const profileModes = params.authModesByProvider.get(providerId);
-  const hasOAuthProfile = profileModes?.has("oauth") ?? false;
   const providerAuthMode = normalizeAuthMode(provider?.auth ?? "");
 
   const push = (raw: string | undefined) => {
@@ -689,7 +702,7 @@ function resolveAuthModeOptionsForProvider(params: {
   };
 
   const templateMode = normalizeAuthMode(template.auth);
-  if (templateMode && (templateMode !== "oauth" || hasOAuthProfile || providerAuthMode === "oauth")) {
+  if (templateMode) {
     push(templateMode);
   }
   push(providerAuthMode);
@@ -1128,21 +1141,94 @@ export function renderModels(props: ModelsProps) {
                       await props.onRunOAuthWizard(providerId, method);
                     }}
                   >
-                    ${props.oauthRunning ? "Running Wizard…" : "Run OAuth Wizard in UI"}
+                    ${props.oauthRunning ? "Running Wizard…" : "Start OAuth in UI"}
                   </button>
                   <button class="btn" type="button" @click=${props.onReload}>Reload Auth Profiles</button>
                 </form>
 
                 <div class="models-oauth-command-preview">
-                  <code>
-                    ${defaultOAuthProviderId
-                      ? buildModelsOAuthLoginCommand(defaultOAuthProviderId)
-                      : "openclaw models auth login --provider <provider>"}
-                  </code>
+                  <code>openclaw models auth login --provider &lt;selected-provider&gt; [--method &lt;id&gt;]</code>
                 </div>
                 <div class="models-inline-help" style="margin-top: 8px;">
-                  Tip: use "Run OAuth Wizard in UI" for guided onboarding prompts, or use the copied command if you prefer terminal flow.
+                  Tip: Start OAuth in UI, open the link, complete provider login, paste redirected URL/code, then press Connect.
                 </div>
+
+                ${
+                  props.oauthStatus && !props.oauthStep
+                    ? html`<div class="models-oauth-status">${props.oauthStatus}</div>`
+                    : nothing
+                }
+
+                ${
+                  props.oauthSessionId && props.oauthStep
+                    ? html`
+                        <div class="models-oauth-live-step">
+                          <div class="models-oauth-live-step__head">
+                            <strong>${asString(props.oauthStep.title) || `OAuth step (${props.oauthStep.type})`}</strong>
+                            <span class="pill">session ${props.oauthSessionId.slice(0, 8)}</span>
+                          </div>
+                          ${
+                            asString(props.oauthStep.message) &&
+                            asString(props.oauthStep.message) !== asString(props.oauthStep.title)
+                              ? html`<div class="models-inline-help">${props.oauthStep.message}</div>`
+                              : nothing
+                          }
+                          ${
+                            props.oauthStepUrl
+                              ? html`
+                                  <div class="models-oauth-link-row">
+                                    <a
+                                      class="btn"
+                                      href=${props.oauthStepUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      Open OAuth Link
+                                    </a>
+                                    <code>${props.oauthStepUrl}</code>
+                                  </div>
+                                `
+                              : nothing
+                          }
+                          <div class="models-wizard-form models-wizard-form--oauth-step">
+                            <input
+                              name="oauthStepInput"
+                              placeholder=${asString(props.oauthStep.placeholder) || "Paste redirected URL / code"}
+                              .value=${props.oauthStepInput ?? ""}
+                              @input=${(event: Event) => {
+                                if (!props.onChangeOAuthInput) {
+                                  return;
+                                }
+                                const input = event.currentTarget;
+                                if (!(input instanceof HTMLInputElement)) {
+                                  return;
+                                }
+                                props.onChangeOAuthInput(input.value);
+                              }}
+                            />
+                            <button
+                              class="btn"
+                              type="button"
+                              ?disabled=${props.oauthRunning || !props.onSubmitOAuthStep}
+                              @click=${() => props.onSubmitOAuthStep?.(props.oauthStepInput ?? "")}
+                            >
+                              ${props.oauthRunning ? "Connecting…" : "Connect"}
+                            </button>
+                            <button
+                              class="btn"
+                              type="button"
+                              ?disabled=${props.oauthRunning || !props.onCancelOAuthWizard}
+                              @click=${() => {
+                                void props.onCancelOAuthWizard?.();
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      `
+                    : nothing
+                }
               </section>
             `
           : nothing
@@ -1244,7 +1330,14 @@ export function renderModels(props: ModelsProps) {
               apiKeyInput: apiKey,
               authByProvider,
             });
-            if (authValidationError) {
+            const shouldBootstrapOAuthInUi =
+              normalizedAuth === "oauth" &&
+              (authByProvider.get(providerId) ?? 0) === 0 &&
+              Boolean(props.onRunOAuthWizard);
+            const bypassOAuthIncompleteValidation =
+              shouldBootstrapOAuthInUi &&
+              Boolean(authValidationError?.toLowerCase().includes("oauth not completed"));
+            if (authValidationError && !bypassOAuthIncompleteValidation) {
               alert(authValidationError);
               return;
             }
@@ -1283,6 +1376,10 @@ export function renderModels(props: ModelsProps) {
               preferred: normalizedAuth,
             });
             updateEasyAliasPlaceholder(form, providerId, catalogModelsByProvider);
+
+            if (shouldBootstrapOAuthInUi) {
+              void props.onRunOAuthWizard?.(providerId);
+            }
           }}
         >
           <select
