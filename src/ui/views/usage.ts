@@ -286,8 +286,8 @@ export function renderUsage(props: UsageProps) {
   const model = props.analyticsView;
   const usageLimits = model.usageLimits;
   const providerApiLimitRows = usageLimits.filter((entry) => entry.source === "provider_api").length;
-  const totalTokens = model.snapshot.totalTokens;
-  const totalCost = model.snapshot.totalCost;
+  const totalTokens = Math.max(0, props.totals?.totalTokens ?? model.snapshot.totalTokens);
+  const totalCost = props.totals?.totalCost ?? model.snapshot.totalCost;
   const messageCount = Math.max(0, model.snapshot.messageCount);
   const avgTokensPerMessage = messageCount > 0 ? totalTokens / messageCount : 0;
   const avgCostPerMessage = messageCount > 0 ? totalCost / messageCount : 0;

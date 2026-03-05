@@ -1260,7 +1260,7 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
     providers.add(normalizeProvider(provider.provider));
   }
 
-  const totals = costSummary?.totals ?? usageResult?.totals ?? EMPTY_TOTALS;
+  const totals = usageResult?.totals ?? costSummary?.totals ?? EMPTY_TOTALS;
   const providerSummary = summarizeProvidersFromSessions(
     usageResult?.sessions ?? [],
     usageResult?.aggregates.byProvider ?? [],
