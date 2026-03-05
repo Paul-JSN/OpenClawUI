@@ -289,11 +289,11 @@ function resolveAutoAnswer(step: ModelsOAuthUiStep, state: ModelsOAuthWizardStat
       }
       if (text.includes("gateway token")) {
         const token = resolveGatewayClientOption(state, "token") || asString(step.initialValue);
-        return token || null;
+        return token || "";
       }
       if (text.includes("gateway password")) {
         const password = resolveGatewayClientOption(state, "password") || asString(step.initialValue);
-        return password || null;
+        return password || "";
       }
       if (text.includes("auth method") || text.includes("method")) {
         return state.modelsOauthMethodHint || asString(step.initialValue) || null;
@@ -454,8 +454,6 @@ export async function startModelsOAuthWizard(
   const hints = extractProviderHints(params.providerId, params.method);
   state.modelsOauthProviderHint = hints.providerHint;
   state.modelsOauthMethodHint = hints.methodHint;
-  state.modelsOauthSelectedProviderId = asString(params.providerId);
-  state.modelsOauthSelectedMethod = asString(params.method ?? "");
   state.modelsOauthStatus = "OAuth wizard 시작 중...";
   state.modelsOauthRunning = true;
   state.lastError = null;
@@ -464,7 +462,9 @@ export async function startModelsOAuthWizard(
   const client = state.client;
 
   try {
-    const result = await client.request<WizardStartResult>("wizard.start", { mode: "local" });
+    const wizardMode =
+      state.modelsOauthProviderHint === "google" ? "remote" : "local";
+    const result = await client.request<WizardStartResult>("wizard.start", { mode: wizardMode });
     const sessionId = asString(result.sessionId);
     if (!sessionId) {
       throw new Error("wizard.start returned empty session id");
