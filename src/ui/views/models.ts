@@ -659,6 +659,89 @@ function setEasyModelOptions(
   updateEasyAliasPlaceholder(form, providerId, modelsByProvider);
 }
 
+function resolveAuthModeOptionsForProvider(params: {
+  providerId: string;
+  providerById: Map<string, ProviderRow>;
+  authModesByProvider: Map<string, Set<string>>;
+}): string[] {
+  const providerId = asString(params.providerId);
+  const provider = params.providerById.get(providerId);
+  const template = resolveProviderTemplate(providerId, provider);
+  const modes: string[] = [];
+
+  const profileModes = params.authModesByProvider.get(providerId);
+  const hasOAuthProfile = profileModes?.has("oauth") ?? false;
+  const providerAuthMode = normalizeAuthMode(provider?.auth ?? "");
+
+  const push = (raw: string | undefined) => {
+    const normalized = normalizeAuthMode(raw ?? "");
+    if (!normalized) {
+      return;
+    }
+    if (!(AUTH_MODE_OPTIONS as readonly string[]).includes(normalized)) {
+      return;
+    }
+    if (!modes.includes(normalized)) {
+      modes.push(normalized);
+    }
+  };
+
+  const templateMode = normalizeAuthMode(template.auth);
+  if (templateMode && (templateMode !== "oauth" || hasOAuthProfile || providerAuthMode === "oauth")) {
+    push(templateMode);
+  }
+  push(providerAuthMode);
+
+  if (profileModes) {
+    for (const mode of profileModes) {
+      push(mode);
+    }
+  }
+
+  if (modes.length === 0) {
+    modes.push("api-key");
+  }
+
+  return modes;
+}
+
+function syncAuthSelectOptions(params: {
+  form: HTMLFormElement;
+  providerId: string;
+  providerById: Map<string, ProviderRow>;
+  authModesByProvider: Map<string, Set<string>>;
+  preferred?: string;
+}): void {
+  const authSelect = params.form.elements.namedItem("auth");
+  if (!(authSelect instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const modes = resolveAuthModeOptionsForProvider({
+    providerId: params.providerId,
+    providerById: params.providerById,
+    authModesByProvider: params.authModesByProvider,
+  });
+  const preferred = normalizeAuthMode(params.preferred ?? authSelect.value);
+
+  while (authSelect.options.length > 0) {
+    authSelect.remove(0);
+  }
+
+  for (const mode of modes) {
+    const option = new Option(mode, mode);
+    option.selected = mode === preferred;
+    authSelect.add(option);
+  }
+
+  if (authSelect.selectedIndex < 0 && authSelect.options.length > 0) {
+    const template = resolveProviderTemplate(params.providerId, params.providerById.get(params.providerId));
+    const recommended = normalizeAuthMode(template.auth);
+    const recommendedIndex = modes.findIndex((mode) => mode === recommended);
+    authSelect.selectedIndex = recommendedIndex >= 0 ? recommendedIndex : 0;
+  }
+}
+
 function hasExistingProviderApiCredential(provider: ProviderRow | undefined): boolean {
   const currentApiKey = provider?.raw?.apiKey;
   if (typeof currentApiKey === "string") {
@@ -753,8 +836,20 @@ export function renderModels(props: ModelsProps) {
   const providerById = new Map(providerRows.map((row) => [row.id, row]));
   const providerModelCount = providerRows.reduce((acc, row) => acc + row.modelRows.length, 0);
   const authByProvider = new Map<string, number>();
+  const authModesByProvider = new Map<string, Set<string>>();
   for (const row of authRows) {
-    authByProvider.set(row.provider, (authByProvider.get(row.provider) ?? 0) + 1);
+    const providerId = asString(row.provider);
+    if (!providerId) {
+      continue;
+    }
+    authByProvider.set(providerId, (authByProvider.get(providerId) ?? 0) + 1);
+    const mode = normalizeAuthMode(row.mode);
+    if (!mode) {
+      continue;
+    }
+    const set = authModesByProvider.get(providerId) ?? new Set<string>();
+    set.add(mode);
+    authModesByProvider.set(providerId, set);
   }
 
   const catalogModels = mergeCatalogModels(
@@ -839,6 +934,17 @@ export function renderModels(props: ModelsProps) {
     defaultEasyProviderId && defaultEasyModels[0]
       ? deriveAliasSeed(`${defaultEasyProviderId}/${defaultEasyModels[0].id}`)
       : "model";
+  const defaultEasyAuthOptions = resolveAuthModeOptionsForProvider({
+    providerId: defaultEasyProviderId,
+    providerById,
+    authModesByProvider,
+  });
+  const defaultEasyRecommendedAuth = normalizeAuthMode(
+    resolveProviderTemplate(defaultEasyProviderId, providerById.get(defaultEasyProviderId)).auth,
+  );
+  const defaultEasyAuth = defaultEasyAuthOptions.includes(defaultEasyRecommendedAuth)
+    ? defaultEasyRecommendedAuth
+    : (defaultEasyAuthOptions[0] ?? "api-key");
   const providerDisplayIds = Array.from(new Set([...activeProviderIds, ...catalogProviders])).toSorted(
     (a, b) => {
       const activityCmp = Number(activeProviderIdSet.has(b)) - Number(activeProviderIdSet.has(a));
@@ -1035,10 +1141,13 @@ export function renderModels(props: ModelsProps) {
               providerSelect.value = providerId;
               setEasyModelOptions(form, providerId, catalogModelsByProvider);
             }
-            const authSelect = form.elements.namedItem("auth");
-            if (authSelect instanceof HTMLSelectElement) {
-              authSelect.value = normalizedAuth;
-            }
+            syncAuthSelectOptions({
+              form,
+              providerId,
+              providerById,
+              authModesByProvider,
+              preferred: normalizedAuth,
+            });
             updateEasyAliasPlaceholder(form, providerId, catalogModelsByProvider);
           }}
         >
@@ -1053,11 +1162,14 @@ export function renderModels(props: ModelsProps) {
               }
               const providerId = asString(select.value);
               setEasyModelOptions(form, providerId, catalogModelsByProvider);
-              const authSelect = form.elements.namedItem("auth");
-              if (authSelect instanceof HTMLSelectElement) {
-                const template = resolveProviderTemplate(providerId, providerById.get(providerId));
-                authSelect.value = template.auth || authSelect.value;
-              }
+              const template = resolveProviderTemplate(providerId, providerById.get(providerId));
+              syncAuthSelectOptions({
+                form,
+                providerId,
+                providerById,
+                authModesByProvider,
+                preferred: template.auth,
+              });
             }}
           >
             ${catalogProviders.map(
@@ -1102,13 +1214,9 @@ export function renderModels(props: ModelsProps) {
           </div>
 
           <select name="auth">
-            ${AUTH_MODE_OPTIONS.map((mode) => {
-              const recommended = resolveProviderTemplate(
-                defaultEasyProviderId,
-                providerById.get(defaultEasyProviderId),
-              ).auth;
-              return html`<option value=${mode} ?selected=${mode === recommended}>${mode}</option>`;
-            })}
+            ${defaultEasyAuthOptions.map(
+              (mode) => html`<option value=${mode} ?selected=${mode === defaultEasyAuth}>${mode}</option>`,
+            )}
           </select>
           <input name="apiKey" placeholder="api key/env ref (optional)" />
           <input
@@ -1245,13 +1353,20 @@ export function renderModels(props: ModelsProps) {
                   element.value = value ?? "";
                 }
               };
-              setInputValue("providerId", preset.providerId);
+              const providerId = asString(preset.providerId);
+              setInputValue("providerId", providerId);
               setInputValue("baseUrl", preset.baseUrl);
               setInputValue("api", preset.api);
-              setInputValue("auth", preset.auth);
               setInputValue("modelId", preset.modelId);
               setInputValue("modelName", preset.modelName);
               setInputValue("alias", preset.alias);
+              syncAuthSelectOptions({
+                form,
+                providerId,
+                providerById,
+                authModesByProvider,
+                preferred: preset.auth,
+              });
             }}
           >
             ${WIZARD_PRESETS.map((preset) => html`<option value=${preset.key}>${preset.label}</option>`)}
@@ -1262,6 +1377,19 @@ export function renderModels(props: ModelsProps) {
             pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
             title="letters/numbers + . _ - only"
             required
+            @input=${(event: Event) => {
+              const input = event.currentTarget as HTMLInputElement;
+              const form = input.form;
+              if (!form) {
+                return;
+              }
+              syncAuthSelectOptions({
+                form,
+                providerId: asString(input.value),
+                providerById,
+                authModesByProvider,
+              });
+            }}
           />
           <input name="baseUrl" placeholder="base URL" type="url" required />
           <select name="api">
@@ -1269,8 +1397,9 @@ export function renderModels(props: ModelsProps) {
             ${MODEL_API_OPTIONS.map((api) => html`<option value=${api}>${api}</option>`)}
           </select>
           <select name="auth">
-            <option value="">auth</option>
-            ${AUTH_MODE_OPTIONS.map((mode) => html`<option value=${mode}>${mode}</option>`)}
+            ${resolveAuthModeOptionsForProvider({ providerId: "", providerById, authModesByProvider }).map(
+              (mode, idx) => html`<option value=${mode} ?selected=${idx === 0}>${mode}</option>`,
+            )}
           </select>
           <input name="apiKey" placeholder="api key/env ref (optional)" />
           <input
@@ -1357,6 +1486,19 @@ export function renderModels(props: ModelsProps) {
             pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
             title="letters/numbers + . _ - only"
             required
+            @input=${(event: Event) => {
+              const input = event.currentTarget as HTMLInputElement;
+              const form = input.form;
+              if (!form) {
+                return;
+              }
+              syncAuthSelectOptions({
+                form,
+                providerId: asString(input.value),
+                providerById,
+                authModesByProvider,
+              });
+            }}
           />
           <input name="baseUrl" placeholder="base URL" type="url" required />
           <select name="api">
@@ -1364,8 +1506,9 @@ export function renderModels(props: ModelsProps) {
             ${MODEL_API_OPTIONS.map((api) => html`<option value=${api}>${api}</option>`)}
           </select>
           <select name="auth">
-            <option value="">auth (optional)</option>
-            ${AUTH_MODE_OPTIONS.map((mode) => html`<option value=${mode}>${mode}</option>`)}
+            ${resolveAuthModeOptionsForProvider({ providerId: "", providerById, authModesByProvider }).map(
+              (mode, idx) => html`<option value=${mode} ?selected=${idx === 0}>${mode}</option>`,
+            )}
           </select>
           <input name="apiKey" placeholder="api key/env ref (optional)" />
           <button class="btn" type="submit">Add / Update Provider</button>
