@@ -217,6 +217,11 @@ const PROVIDER_TEMPLATES: Record<string, ProviderTemplate> = {
     api: "openai-completions",
     auth: "oauth",
   },
+  "minimax-portal": {
+    baseUrl: "https://api.minimax.io/anthropic",
+    api: "anthropic-messages",
+    auth: "oauth",
+  },
   mistral: {
     baseUrl: "https://api.mistral.ai/v1",
     api: "openai-responses",
@@ -792,8 +797,12 @@ function resolveProviderAuthValidationError(params: {
     if (params.providerId === "opencode") {
       return "opencode does not use OAuth here. Use auth=api-key (OPENCODE_API_KEY) or run: openclaw onboard --auth-choice opencode-zen";
     }
-    if ((params.authByProvider.get(params.providerId) ?? 0) === 0) {
-      return `OAuth not completed for ${params.providerId}. Use the OAuth Run Step in this page (or run: openclaw models auth login --provider ${params.providerId}), then retry.`;
+    const normalizedProviderId = normalizeOAuthProviderSelection(params.providerId).providerId;
+    const hasOAuthProfile =
+      (params.authByProvider.get(params.providerId) ?? 0) > 0 ||
+      (params.authByProvider.get(normalizedProviderId) ?? 0) > 0;
+    if (!hasOAuthProfile) {
+      return `OAuth not completed for ${normalizedProviderId}. Use the OAuth Run Step in this page (or run: ${buildModelsOAuthLoginCommand(params.providerId)}), then retry.`;
     }
   }
 
@@ -807,11 +816,61 @@ function shellQuoteArg(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
+const OAUTH_PROVIDER_NORMALIZATION: Record<string, { providerId: string; method?: string }> = {
+  minimax: { providerId: "minimax-portal", method: "oauth" },
+  "minimax-cn": { providerId: "minimax-portal", method: "oauth-cn" },
+};
+
+const OAUTH_PROVIDER_PLUGIN_IDS: Record<string, string> = {
+  minimax: "minimax-portal-auth",
+  "minimax-cn": "minimax-portal-auth",
+  "minimax-portal": "minimax-portal-auth",
+  "qwen-portal": "qwen-portal-auth",
+  "google-gemini-cli": "google-gemini-cli-auth",
+};
+
+function normalizeOAuthProviderSelection(
+  providerId: string,
+  method?: string,
+): { providerId: string; method: string } {
+  const rawProviderId = asString(providerId);
+  const rawMethod = asString(method);
+  const mapped = OAUTH_PROVIDER_NORMALIZATION[rawProviderId];
+  const normalizedProviderId = mapped?.providerId ?? rawProviderId;
+  const normalizedMethod = rawMethod || mapped?.method || "";
+  return {
+    providerId: normalizedProviderId,
+    method: normalizedMethod,
+  };
+}
+
+function resolveOAuthPluginIdForProvider(providerId: string): string {
+  const rawProviderId = asString(providerId);
+  if (!rawProviderId) {
+    return "";
+  }
+  const normalizedProviderId = normalizeOAuthProviderSelection(rawProviderId).providerId;
+  return OAUTH_PROVIDER_PLUGIN_IDS[rawProviderId] ?? OAUTH_PROVIDER_PLUGIN_IDS[normalizedProviderId] ?? "";
+}
+
+function isPluginEnabledInConfig(config: Record<string, unknown> | null, pluginId: string): boolean {
+  const entries = asRecord(asRecord(asRecord(config)?.plugins)?.entries);
+  const entry = entries ? asRecord(entries[pluginId]) : null;
+  return entry?.enabled === true;
+}
+
 function buildModelsOAuthLoginCommand(providerId: string, method?: string): string {
-  const command = ["openclaw", "models", "auth", "login", "--provider", shellQuoteArg(providerId)];
-  const normalizedMethod = asString(method);
-  if (normalizedMethod) {
-    command.push("--method", shellQuoteArg(normalizedMethod));
+  const normalized = normalizeOAuthProviderSelection(providerId, method);
+  const command = [
+    "openclaw",
+    "models",
+    "auth",
+    "login",
+    "--provider",
+    shellQuoteArg(normalized.providerId),
+  ];
+  if (normalized.method) {
+    command.push("--method", shellQuoteArg(normalized.method));
   }
   return command.join(" ");
 }
@@ -1168,7 +1227,19 @@ export function renderModels(props: ModelsProps) {
                         alert("Select an OAuth provider first.");
                         return;
                       }
-                      await props.onRunOAuthWizard(providerId, method);
+
+                      const pluginId = resolveOAuthPluginIdForProvider(providerId);
+                      if (pluginId && !isPluginEnabledInConfig(config, pluginId)) {
+                        props.onPatch(["plugins", "entries", pluginId, "enabled"], true);
+                        props.onApply();
+                        alert(
+                          `Enabled required plugin ${pluginId} and applied runtime. After reconnect, click Start OAuth in UI again.`,
+                        );
+                        return;
+                      }
+
+                      const normalized = normalizeOAuthProviderSelection(providerId, method);
+                      await props.onRunOAuthWizard(normalized.providerId, normalized.method);
                     }}
                   >
                     ${props.oauthRunning ? "Running Wizard…" : "Start OAuth in UI"}
@@ -1362,19 +1433,27 @@ export function renderModels(props: ModelsProps) {
               }
             }
 
-            const provider = providerById.get(providerId);
             const normalizedAuth = normalizeAuthMode(auth || template.auth);
+            const normalizedOAuth = normalizeOAuthProviderSelection(providerId);
+            const targetProviderId =
+              normalizedAuth === "oauth" ? normalizedOAuth.providerId : providerId;
+            const provider = providerById.get(targetProviderId) ?? providerById.get(providerId);
+            const providerTemplateForSave =
+              normalizedAuth === "oauth" && targetProviderId !== providerId
+                ? resolveProviderTemplate(targetProviderId, providerById.get(targetProviderId))
+                : template;
             const authValidationError = resolveProviderAuthValidationError({
-              providerId,
+              providerId: targetProviderId,
               authMode: normalizedAuth,
               provider,
               apiKeyInput: apiKey,
               authByProvider,
             });
+            const hasOAuthProfile =
+              (authByProvider.get(providerId) ?? 0) > 0 ||
+              (authByProvider.get(targetProviderId) ?? 0) > 0;
             const shouldBootstrapOAuthInUi =
-              normalizedAuth === "oauth" &&
-              (authByProvider.get(providerId) ?? 0) === 0 &&
-              Boolean(props.onRunOAuthWizard);
+              normalizedAuth === "oauth" && !hasOAuthProfile && Boolean(props.onRunOAuthWizard);
             const bypassOAuthIncompleteValidation =
               shouldBootstrapOAuthInUi &&
               Boolean(authValidationError?.toLowerCase().includes("oauth not completed"));
@@ -1385,8 +1464,8 @@ export function renderModels(props: ModelsProps) {
 
             const nextProvider = createProviderObject({
               current: provider?.raw ?? null,
-              baseUrl: template.baseUrl,
-              api: template.api,
+              baseUrl: providerTemplateForSave.baseUrl,
+              api: providerTemplateForSave.api,
               auth: normalizedAuth,
               apiKey,
             });
@@ -1394,11 +1473,11 @@ export function renderModels(props: ModelsProps) {
               provider?.modelRows ?? [],
               selectedRows.map((row) => ({ id: row.id, name: row.name || row.id })),
             );
-            props.onPatch(["models", "providers", providerId], nextProvider);
+            props.onPatch(["models", "providers", targetProviderId], nextProvider);
 
             if (alias && selectedRows.length === 1) {
               props.onPatch(
-                ["agents", "defaults", "models", `${providerId}/${selectedRows[0].id}`, "alias"],
+                ["agents", "defaults", "models", `${targetProviderId}/${selectedRows[0].id}`, "alias"],
                 alias,
               );
             }
@@ -1419,7 +1498,17 @@ export function renderModels(props: ModelsProps) {
             updateEasyAliasPlaceholder(form, providerId, catalogModelsByProvider);
 
             if (shouldBootstrapOAuthInUi) {
-              void props.onRunOAuthWizard?.(providerId);
+              const pluginId = resolveOAuthPluginIdForProvider(providerId);
+              if (pluginId && !isPluginEnabledInConfig(config, pluginId)) {
+                props.onPatch(["plugins", "entries", pluginId, "enabled"], true);
+                props.onApply();
+                alert(
+                  `Enabled required plugin ${pluginId} and applied runtime. After reconnect, click Start OAuth in UI again.`,
+                );
+                return;
+              }
+              const oauthSelection = normalizeOAuthProviderSelection(providerId);
+              void props.onRunOAuthWizard?.(oauthSelection.providerId, oauthSelection.method);
             }
           }}
         >

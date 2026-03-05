@@ -250,6 +250,14 @@ function defaultManualInput(step: ModelsOAuthUiStep, state: ModelsOAuthWizardSta
   return initial;
 }
 
+function resolveGatewayClientOption(state: ModelsOAuthWizardState, key: "url" | "token" | "password"): string {
+  const client = state.client as unknown as { opts?: Record<string, unknown> } | null;
+  if (!client?.opts) {
+    return "";
+  }
+  return asString(client.opts[key]);
+}
+
 function resolveAutoAnswer(step: ModelsOAuthUiStep, state: ModelsOAuthWizardState): unknown | null {
   switch (step.type) {
     case "note":
@@ -275,6 +283,17 @@ function resolveAutoAnswer(step: ModelsOAuthUiStep, state: ModelsOAuthWizardStat
       const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`;
       if (looksLikeManualCodePrompt(step)) {
         return null;
+      }
+      if (text.includes("gateway websocket url")) {
+        return resolveGatewayClientOption(state, "url") || asString(step.initialValue) || "ws://127.0.0.1:18789";
+      }
+      if (text.includes("gateway token")) {
+        const token = resolveGatewayClientOption(state, "token") || asString(step.initialValue);
+        return token || null;
+      }
+      if (text.includes("gateway password")) {
+        const password = resolveGatewayClientOption(state, "password") || asString(step.initialValue);
+        return password || null;
       }
       if (text.includes("auth method") || text.includes("method")) {
         return state.modelsOauthMethodHint || asString(step.initialValue) || null;
@@ -445,7 +464,7 @@ export async function startModelsOAuthWizard(
   const client = state.client;
 
   try {
-    const result = await client.request<WizardStartResult>("wizard.start", { mode: "remote" });
+    const result = await client.request<WizardStartResult>("wizard.start", { mode: "local" });
     const sessionId = asString(result.sessionId);
     if (!sessionId) {
       throw new Error("wizard.start returned empty session id");
