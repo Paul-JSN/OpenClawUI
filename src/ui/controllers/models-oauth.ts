@@ -371,6 +371,29 @@ function clearModelsOAuthSession(state: ModelsOAuthWizardState) {
   state.modelsOauthStepUrl = null;
 }
 
+function looksLikeOAuthCompletionNote(step: ModelsOAuthUiStep): boolean {
+  if (step.type !== "note") {
+    return false;
+  }
+  const text = `${toLower(step.title)} ${toLower(step.message)}`;
+  if (!text) {
+    return false;
+  }
+  if (text.includes("oauth tokens auto-refresh")) {
+    return true;
+  }
+  if (text.includes("re-run login if refresh fails")) {
+    return true;
+  }
+  if (text.includes("base url defaults to") && text.includes("override models.providers")) {
+    return true;
+  }
+  if (text.includes("oauth complete") && text.includes("base url")) {
+    return true;
+  }
+  return false;
+}
+
 function formatWizardEndMessage(result: { status?: string; error?: string }): string {
   if (result.status === "done" || !result.status) {
     return "OAuth 연결 완료.";
@@ -427,6 +450,18 @@ async function processWizardUntilPause(
     if (!step) {
       result = await client.request<WizardNextResult>("wizard.next", { sessionId });
       continue;
+    }
+
+    if (looksLikeOAuthCompletionNote(step)) {
+      state.modelsOauthStatus = "OAuth 연결 완료. auth.profiles 갱신 중...";
+      try {
+        await client.request("wizard.cancel", { sessionId });
+      } catch {
+        // best effort cleanup; flow may already be done
+      }
+      await finishWizard(state, { status: "done" }, onReload);
+      state.modelsOauthRunning = false;
+      return;
     }
 
     const embeddedUrl = extractActionUrl(step);
