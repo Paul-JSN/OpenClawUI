@@ -56,9 +56,9 @@ function formatTokenReadWriteSplit(parts: {
   cacheRead: number;
   cacheWrite: number;
 }): string {
-  const included = Math.max(0, parts.total);
-  const excluded = Math.max(0, included - Math.max(0, parts.cacheRead) - Math.max(0, parts.cacheWrite));
-  return `read/write included ${formatTokens(included)} / excluded ${formatTokens(excluded)}`;
+  const total = Math.max(0, parts.total);
+  const excluded = Math.max(0, total - Math.max(0, parts.cacheRead) - Math.max(0, parts.cacheWrite));
+  return `Cache Excluded: ${formatTokens(excluded)}`;
 }
 
 function trendPercent(values: number[]): number | null {
