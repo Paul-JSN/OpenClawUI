@@ -91,6 +91,20 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
+function formatTokenSlashBreakdown(parts: {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}): string {
+  return [
+    `in ${formatTokens(parts.input)}`,
+    `out ${formatTokens(parts.output)}`,
+    `cr ${formatTokens(parts.cacheRead)}`,
+    `cw ${formatTokens(parts.cacheWrite)}`,
+  ].join(" / ");
+}
+
 function formatResetTime(
   resetAt: string | null,
   displayTimeZone: UsageProps["displayTimeZone"],
@@ -288,6 +302,12 @@ export function renderUsage(props: UsageProps) {
   const providerApiLimitRows = usageLimits.filter((entry) => entry.source === "provider_api").length;
   const totalTokens = Math.max(0, props.totals?.totalTokens ?? model.snapshot.totalTokens);
   const totalCost = props.totals?.totalCost ?? model.snapshot.totalCost;
+  const totalTokenBreakdown = {
+    input: Math.max(0, props.totals?.input ?? model.snapshot.breakdown.inputTokens),
+    output: Math.max(0, props.totals?.output ?? model.snapshot.breakdown.outputTokens),
+    cacheRead: Math.max(0, props.totals?.cacheRead ?? model.snapshot.breakdown.cacheReadTokens),
+    cacheWrite: Math.max(0, props.totals?.cacheWrite ?? model.snapshot.breakdown.cacheWriteTokens),
+  };
   const messageCount = Math.max(0, model.snapshot.messageCount);
   const avgTokensPerMessage = messageCount > 0 ? totalTokens / messageCount : 0;
   const avgCostPerMessage = messageCount > 0 ? totalCost / messageCount : 0;
@@ -423,6 +443,7 @@ export function renderUsage(props: UsageProps) {
             <div>
               <label>Total Tokens Used</label>
               <strong>${formatTokens(totalTokens)}</strong>
+              <div class="muted" style="font-size: 11px;">${formatTokenSlashBreakdown(totalTokenBreakdown)}</div>
             </div>
             <div class="react-kpi-side">
               <span class="react-kpi-icon">${renderKpiIcon("tokens")}</span>

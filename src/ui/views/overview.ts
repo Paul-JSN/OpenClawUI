@@ -51,6 +51,20 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
+function formatTokenSlashBreakdown(parts: {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}): string {
+  return [
+    `in ${formatTokens(parts.input)}`,
+    `out ${formatTokens(parts.output)}`,
+    `cr ${formatTokens(parts.cacheRead)}`,
+    `cw ${formatTokens(parts.cacheWrite)}`,
+  ].join(" / ");
+}
+
 function trendPercent(values: number[]): number | null {
   if (values.length < 2) {
     return null;
@@ -149,6 +163,12 @@ export function renderOverview(props: OverviewProps) {
   const sessionsDelta = trendPercent(model.trends.map((point) => point.sessions));
 
   const breakdown = snapshot24h?.breakdown ?? model.snapshot.breakdown;
+  const tokenBreakdownLabel = formatTokenSlashBreakdown({
+    input: Math.max(0, breakdown.inputTokens),
+    output: Math.max(0, breakdown.outputTokens),
+    cacheRead: Math.max(0, breakdown.cacheReadTokens),
+    cacheWrite: Math.max(0, breakdown.cacheWriteTokens),
+  });
   const rawCostRows = [
     { label: "Input", value: Math.max(0, breakdown.inputCost), color: "var(--react-cost-color-1)" },
     { label: "Output", value: Math.max(0, breakdown.outputCost), color: "var(--react-cost-color-2)" },
@@ -192,6 +212,7 @@ export function renderOverview(props: OverviewProps) {
             <div>
               <label>Tokens (${snapshotWindowLabel})</label>
               <strong>${formatTokens(tokens24h)}</strong>
+              <div class="muted" style="font-size: 11px;">${tokenBreakdownLabel}</div>
             </div>
             <div class="react-kpi-side">
               <span class="react-kpi-icon">${renderKpiIcon("tokens")}</span>
