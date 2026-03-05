@@ -122,19 +122,16 @@ alias openclaw-update-ui='openclaw update && /path/to/OpenClawUI/scripts/reapply
 
 ## 8) Screenshots
 
-Add screenshots under `docs/screenshots/` and update this section.
+Current UI captures:
 
-Suggested files:
-- `docs/screenshots/models-overview.png`
-- `docs/screenshots/models-oauth-flow.png`
-- `docs/screenshots/agents-tabs.png`
+### DB1 — Overview
+![Overview](DB1.png)
 
-Markdown placeholders:
-```md
-![Models Overview](docs/screenshots/models-overview.png)
-![Models OAuth Flow](docs/screenshots/models-oauth-flow.png)
-![Agents Tabs](docs/screenshots/agents-tabs.png)
-```
+### DB2 — Usage
+![Usage](DB2.png)
+
+### DB3 — Models
+![Models](DB3.png)
 
 ---
 
