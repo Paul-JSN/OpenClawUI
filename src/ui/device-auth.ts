@@ -24,7 +24,8 @@ function readStore(): DeviceAuthStore | null {
       return null;
     }
     return parsed;
-  } catch {
+  } catch (err) {
+    console.warn("[device-auth] Failed to read auth store:", err);
     return null;
   }
 }
@@ -32,8 +33,8 @@ function readStore(): DeviceAuthStore | null {
 function writeStore(store: DeviceAuthStore) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch {
-    // best-effort
+  } catch (err) {
+    console.warn("[device-auth] Failed to write auth store (storage may be full or restricted):", err);
   }
 }
 
