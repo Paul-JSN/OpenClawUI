@@ -297,6 +297,42 @@ function parseModelRow(raw: unknown): ModelRow | null {
   };
 }
 
+function parseProviderModelRows(rawModels: unknown): ModelRow[] {
+  const modelEntries: unknown[] = [];
+
+  if (Array.isArray(rawModels)) {
+    modelEntries.push(...rawModels);
+  } else {
+    const modelRecord = asRecord(rawModels);
+    if (modelRecord) {
+      for (const [modelId, rawModel] of Object.entries(modelRecord)) {
+        const normalizedId = asString(modelId);
+        if (!normalizedId) {
+          continue;
+        }
+        if (typeof rawModel === "string") {
+          modelEntries.push({ id: normalizedId, name: asString(rawModel) || normalizedId });
+          continue;
+        }
+        const record = asRecord(rawModel);
+        if (record) {
+          modelEntries.push({
+            ...record,
+            id: asString(record.id) || normalizedId,
+            name: asString(record.name) || normalizedId,
+          });
+          continue;
+        }
+        modelEntries.push({ id: normalizedId, name: normalizedId });
+      }
+    }
+  }
+
+  return modelEntries
+    .map((entry) => parseModelRow(entry))
+    .filter((entry): entry is ModelRow => Boolean(entry));
+}
+
 function parseProviderRows(config: Record<string, unknown> | null): ProviderRow[] {
   const providers = asRecord(asRecord(config?.models)?.providers);
   if (!providers) {
@@ -305,9 +341,7 @@ function parseProviderRows(config: Record<string, unknown> | null): ProviderRow[
   return Object.entries(providers)
     .map(([providerId, rawProvider]) => {
       const provider = asRecord(rawProvider) ?? {};
-      const modelRows = asArray(provider.models)
-        .map((entry) => parseModelRow(entry))
-        .filter((entry): entry is ModelRow => Boolean(entry));
+      const modelRows = parseProviderModelRows(provider.models);
       return {
         id: providerId,
         raw: provider,
@@ -371,10 +405,11 @@ function createProviderObject(params: {
   if (params.apiKey) {
     next.apiKey = params.apiKey;
   }
-  const currentModels = asArray(params.current?.models)
-    .map((entry) => parseModelRow(entry))
-    .filter((entry): entry is ModelRow => Boolean(entry))
-    .map((entry) => ({ ...entry.raw }));
+  const currentModels = parseProviderModelRows(params.current?.models).map((entry) => ({
+    ...entry.raw,
+    id: entry.id,
+    name: entry.name || entry.id,
+  }));
   next.models = currentModels;
   return next;
 }
