@@ -91,7 +91,6 @@ const PROVIDER_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 const MODEL_ID_RE = /^\S+$/;
 const QUALIFIED_MODEL_ID_RE = /^[^\s/]+\/\S+$/;
 const ALIAS_RE = /^[a-zA-Z][a-zA-Z0-9._-]*$/;
-const AUTH_PROFILE_REQUIRED_MODES = new Set(["oauth", "token", "aws-sdk"]);
 const WIZARD_PRESETS: WizardPreset[] = [
   {
     key: "custom",
@@ -687,8 +686,13 @@ function resolveProviderAuthValidationError(params: {
     return null;
   }
 
-  if (AUTH_PROFILE_REQUIRED_MODES.has(authMode) && (params.authByProvider.get(params.providerId) ?? 0) === 0) {
-    return `Provider ${params.providerId} uses ${authMode}. Add auth profile first, then retry.`;
+  if (authMode === "oauth") {
+    if (params.providerId === "opencode") {
+      return "opencode does not use OAuth here. Use auth=api-key (OPENCODE_API_KEY) or run: openclaw onboard --auth-choice opencode-zen";
+    }
+    if ((params.authByProvider.get(params.providerId) ?? 0) === 0) {
+      return `OAuth not completed for ${params.providerId}. Run: openclaw models auth login (pick provider, open link, paste code), then retry.`;
+    }
   }
 
   return null;
@@ -769,6 +773,24 @@ export function renderModels(props: ModelsProps) {
     new Set([...providerRows.map((row) => row.id), ...aliasDerivedProviderIds]),
   ).toSorted((a, b) => a.localeCompare(b));
   const activeProviderIdSet = new Set(activeProviderIds);
+
+  const aliasModelIdsByProvider = new Map<string, string[]>();
+  for (const row of aliasRows) {
+    const slash = row.modelId.indexOf("/");
+    if (slash <= 0) {
+      continue;
+    }
+    const providerId = row.modelId.slice(0, slash).trim();
+    const modelId = row.modelId.slice(slash + 1).trim();
+    if (!providerId || !modelId) {
+      continue;
+    }
+    const list = aliasModelIdsByProvider.get(providerId) ?? [];
+    if (!list.includes(modelId)) {
+      list.push(modelId);
+    }
+    aliasModelIdsByProvider.set(providerId, list);
+  }
 
   const catalogProviders = Array.from(
     new Set([
@@ -1110,7 +1132,7 @@ export function renderModels(props: ModelsProps) {
       </section>
 
       <section class="card">
-        <details class="models-collapse" open>
+        <details class="models-collapse">
           <summary class="models-collapse__summary">
             <div>
               <div class="card-title">Advanced Setup Wizard</div>
@@ -1353,21 +1375,27 @@ export function renderModels(props: ModelsProps) {
           ${providerDisplayIds.map((providerId) => {
             const provider = providerById.get(providerId);
             const providerModels = provider?.modelRows ?? [];
+            const aliasModelIds = aliasModelIdsByProvider.get(providerId) ?? [];
+            const effectiveModelCount = new Set([
+              ...providerModels.map((model) => model.id),
+              ...aliasModelIds,
+            ]).size;
             const providerAuthCount = authByProvider.get(providerId) ?? 0;
             const template = resolveProviderTemplate(providerId, provider);
             const catalogCount = catalogModelsByProvider.get(providerId)?.length ?? 0;
             const isActive = activeProviderIdSet.has(providerId);
             return html`
-              <details class="models-provider-accordion" open>
+              <details class="models-provider-accordion">
                 <summary class="models-provider-accordion__summary">
                   <div>
                     <strong>${providerId}</strong>
                     <div class="muted" style="font-size: 11px; margin-top: 2px;">
-                      ${provider ? "configured" : "not configured"} · active models ${providerModels.length} · catalog ${catalogCount}
+                      ${provider ? "configured" : "not configured"} · models ${effectiveModelCount} · catalog ${catalogCount}
                     </div>
                   </div>
                   <div class="models-provider-accordion__summary-badges">
                     ${isActive ? html`<span class="models-provider-pill is-active">active</span>` : nothing}
+                    ${aliasModelIds.length > 0 ? html`<span class="models-provider-pill">refs ${aliasModelIds.length}</span>` : nothing}
                     ${provider ? html`<span class="models-provider-pill">auth ${providerAuthCount}</span>` : nothing}
                   </div>
                 </summary>
@@ -1440,7 +1468,14 @@ export function renderModels(props: ModelsProps) {
 
                           ${
                             providerModels.length === 0
-                              ? html`<div class="muted" style="margin-top: 10px;">No active models.</div>`
+                              ? html`
+                                  <div class="muted" style="margin-top: 10px;">
+                                    No provider models configured.
+                                    ${aliasModelIds.length > 0
+                                      ? html`Alias refs: ${aliasModelIds.join(", ")}`
+                                      : nothing}
+                                  </div>
+                                `
                               : html`
                                   <table class="react-provider-table usage-detail-table" style="margin-top: 10px;">
                                     <thead>
@@ -1488,13 +1523,16 @@ export function renderModels(props: ModelsProps) {
                         `
                       : html`
                           <div class="callout" style="margin-top: 4px;">
-                            This provider is not configured yet.
+                            <div>This provider is not configured yet.</div>
+                            ${aliasModelIds.length > 0
+                              ? html`<div class="muted" style="margin-top: 6px;">Model refs: ${aliasModelIds.join(", ")}</div>`
+                              : nothing}
                             ${
                               template.baseUrl
                                 ? html`
                                     <button
                                       class="btn"
-                                      style="margin-left: 8px;"
+                                      style="margin-top: 8px;"
                                       @click=${() => {
                                         const authValidationError = resolveProviderAuthValidationError({
                                           providerId,
@@ -1534,7 +1572,7 @@ export function renderModels(props: ModelsProps) {
         </div>
       </section>
       <section class="card" style="margin-top: 16px;">
-        <details class="models-collapse" open>
+        <details class="models-collapse">
           <summary class="models-collapse__summary">
             <div>
               <div class="card-title">Model Aliases</div>
