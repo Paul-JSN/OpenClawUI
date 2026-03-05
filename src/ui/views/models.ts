@@ -51,11 +51,6 @@ type AuthRow = {
   mode: string;
 };
 
-type AliasSuggestionRow = {
-  modelId: string;
-  alias: string;
-};
-
 type WizardPreset = {
   key: string;
   label: string;
@@ -270,15 +265,29 @@ function asNumber(value: unknown): number | null {
 }
 
 function parseModelRow(raw: unknown): ModelRow | null {
+  if (typeof raw === "string") {
+    const id = asString(raw);
+    if (!id) {
+      return null;
+    }
+    return {
+      raw: { id, name: id },
+      id,
+      name: id,
+      contextWindow: null,
+      maxTokens: null,
+    };
+  }
+
   const record = asRecord(raw);
   if (!record) {
     return null;
   }
   const id = asString(record.id);
-  const name = asString(record.name);
-  if (!id || !name) {
+  if (!id) {
     return null;
   }
+  const name = asString(record.name) || id;
   return {
     raw: record,
     id,
@@ -362,9 +371,10 @@ function createProviderObject(params: {
   if (params.apiKey) {
     next.apiKey = params.apiKey;
   }
-  const currentModels = asArray(params.current?.models).filter(
-    (entry) => asRecord(entry) !== null,
-  );
+  const currentModels = asArray(params.current?.models)
+    .map((entry) => parseModelRow(entry))
+    .filter((entry): entry is ModelRow => Boolean(entry))
+    .map((entry) => ({ ...entry.raw }));
   next.models = currentModels;
   return next;
 }
@@ -396,6 +406,34 @@ function upsertModelRows(
     nextModelsRaw.push(nextModel);
   }
   return nextModelsRaw;
+}
+
+function upsertCatalogModelRows(
+  current: ModelRow[],
+  models: Array<{ id: string; name: string }>,
+): Record<string, unknown>[] {
+  const next = current.map((entry) => ({ ...entry.raw }));
+  for (const model of models) {
+    const id = asString(model.id);
+    if (!id) {
+      continue;
+    }
+    const index = next.findIndex(
+      (entry) => asString(asRecord(entry)?.id).toLowerCase() === id.toLowerCase(),
+    );
+    const existing = index >= 0 ? asRecord(next[index]) ?? {} : {};
+    const nextRow: Record<string, unknown> = {
+      ...existing,
+      id,
+      name: asString(model.name) || id,
+    };
+    if (index >= 0) {
+      next[index] = nextRow;
+    } else {
+      next.push(nextRow);
+    }
+  }
+  return next;
 }
 
 function normalizePositiveInteger(raw: FormDataEntryValue | null): number | null {
@@ -456,37 +494,6 @@ function deriveAliasSeed(modelId: string): string {
   return seed;
 }
 
-function buildAliasSuggestions(modelIds: string[], aliasRows: AliasRow[]): AliasSuggestionRow[] {
-  const usedAliases = new Set(
-    aliasRows
-      .map((row) => row.alias.trim().toLowerCase())
-      .filter((alias) => alias.length > 0),
-  );
-  const aliasByModelId = new Map(aliasRows.map((row) => [row.modelId, row.alias.trim()]));
-  const suggestions: AliasSuggestionRow[] = [];
-
-  for (const modelId of modelIds) {
-    const existing = aliasByModelId.get(modelId);
-    if (existing && isAliasValid(existing)) {
-      continue;
-    }
-    const base = deriveAliasSeed(modelId);
-    let candidate = base;
-    let suffix = 2;
-    while (usedAliases.has(candidate.toLowerCase())) {
-      candidate = `${base}-${suffix}`;
-      suffix += 1;
-    }
-    if (!isAliasValid(candidate)) {
-      continue;
-    }
-    usedAliases.add(candidate.toLowerCase());
-    suggestions.push({ modelId, alias: candidate });
-  }
-
-  return suggestions;
-}
-
 function parseCatalogFromSuggestions(modelSuggestions: string[]): CatalogModelRow[] {
   return modelSuggestions
     .map((entry) => {
@@ -542,45 +549,80 @@ function resolveProviderTemplate(providerId: string, current: ProviderRow | unde
   };
 }
 
+function updateEasyAliasPlaceholder(
+  form: HTMLFormElement,
+  providerId: string,
+  modelsByProvider: Map<string, CatalogModelRow[]>,
+): void {
+  const aliasInput = form.elements.namedItem("alias");
+  const modelSelect = form.elements.namedItem("modelIds");
+  if (!(aliasInput instanceof HTMLInputElement)) {
+    return;
+  }
+  if (!(modelSelect instanceof HTMLSelectElement)) {
+    aliasInput.placeholder = "alias (optional)";
+    return;
+  }
+  const selectedModelIds = Array.from(modelSelect.selectedOptions)
+    .map((option) => asString(option.value))
+    .filter(Boolean);
+
+  if (selectedModelIds.length === 1) {
+    aliasInput.placeholder = `alias (optional, e.g. ${deriveAliasSeed(`${providerId}/${selectedModelIds[0]}`)})`;
+    return;
+  }
+
+  if (selectedModelIds.length > 1) {
+    aliasInput.placeholder = "alias (optional, only when one model is selected)";
+    return;
+  }
+
+  const fallbackModelId = modelsByProvider.get(providerId)?.[0]?.id;
+  aliasInput.placeholder = fallbackModelId
+    ? `alias (optional, e.g. ${deriveAliasSeed(`${providerId}/${fallbackModelId}`)})`
+    : "alias (optional)";
+}
+
 function setEasyModelOptions(
   form: HTMLFormElement,
   providerId: string,
   modelsByProvider: Map<string, CatalogModelRow[]>,
 ): void {
-  const modelSelect = form.elements.namedItem("modelId");
+  const modelSelect = form.elements.namedItem("modelIds");
   if (!(modelSelect instanceof HTMLSelectElement)) {
     return;
   }
-  const aliasInput = form.elements.namedItem("alias");
   const models = modelsByProvider.get(providerId) ?? [];
-  const previousModelId = asString(modelSelect.value);
+  const previousSelection = new Set(
+    Array.from(modelSelect.selectedOptions)
+      .map((option) => asString(option.value))
+      .filter(Boolean),
+  );
 
   while (modelSelect.options.length > 0) {
     modelSelect.remove(0);
   }
 
-  const placeholder = new Option(models.length > 0 ? "select model" : "no catalog models", "");
-  placeholder.disabled = models.length === 0;
-  placeholder.selected = true;
-  modelSelect.add(placeholder);
+  if (models.length === 0) {
+    const placeholder = new Option("no catalog models", "");
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    modelSelect.add(placeholder);
+    updateEasyAliasPlaceholder(form, providerId, modelsByProvider);
+    return;
+  }
 
   for (const model of models) {
     const option = new Option(`${model.name} (${model.id})`, model.id);
+    option.selected = previousSelection.has(model.id);
     modelSelect.add(option);
   }
 
-  if (models.some((model) => model.id === previousModelId)) {
-    modelSelect.value = previousModelId;
-  } else if (models.length > 0) {
-    modelSelect.value = models[0].id;
+  if (Array.from(modelSelect.selectedOptions).length === 0 && modelSelect.options.length > 0) {
+    modelSelect.options[0].selected = true;
   }
 
-  if (aliasInput instanceof HTMLInputElement) {
-    const activeModelId = modelSelect.value || models[0]?.id || "";
-    aliasInput.placeholder = activeModelId
-      ? `alias (optional, e.g. ${deriveAliasSeed(`${providerId}/${activeModelId}`)})`
-      : "alias (optional)";
-  }
+  updateEasyAliasPlaceholder(form, providerId, modelsByProvider);
 }
 
 export function renderModels(props: ModelsProps) {
@@ -634,8 +676,6 @@ export function renderModels(props: ModelsProps) {
   const providerModelIds = providerRows
     .flatMap((provider) => provider.modelRows.map((model) => `${provider.id}/${model.id}`))
     .toSorted((a, b) => a.localeCompare(b));
-  const providerModelIdSet = new Set(providerModelIds);
-
   const knownModelIds = Array.from(
     new Set([
       ...props.modelSuggestions,
@@ -646,10 +686,6 @@ export function renderModels(props: ModelsProps) {
   ).toSorted((a, b) => a.localeCompare(b));
   const invalidModelIdAliases = aliasRows.filter((row) => !isQualifiedModelId(row.modelId));
   const invalidAliasNames = aliasRows.filter((row) => row.alias && !isAliasValid(row.alias));
-  const orphanAliases = aliasRows.filter(
-    (row) => row.alias && isQualifiedModelId(row.modelId) && !providerModelIdSet.has(row.modelId),
-  );
-  const aliasSuggestions = buildAliasSuggestions(providerModelIds, aliasRows);
   const providersWithCatalogModels = catalogProviders.filter(
     (providerId) => (catalogModelsByProvider.get(providerId)?.length ?? 0) > 0,
   );
@@ -668,6 +704,15 @@ export function renderModels(props: ModelsProps) {
     defaultEasyProviderId && defaultEasyModels[0]
       ? deriveAliasSeed(`${defaultEasyProviderId}/${defaultEasyModels[0].id}`)
       : "model";
+  const providerDisplayIds = Array.from(new Set([...activeProviderIds, ...catalogProviders])).toSorted(
+    (a, b) => {
+      const activityCmp = Number(activeProviderIdSet.has(b)) - Number(activeProviderIdSet.has(a));
+      if (activityCmp !== 0) {
+        return activityCmp;
+      }
+      return a.localeCompare(b);
+    },
+  );
 
   return html`
     <section class="models-page">
@@ -677,12 +722,16 @@ export function renderModels(props: ModelsProps) {
           : nothing
       }
 
-      <div class="kpi-grid" style="margin-bottom: 14px;">
+      <div class="kpi-grid models-kpi-grid" style="margin-bottom: 14px;">
         <article class="kpi-card">
           <div class="kpi-card__inner">
             <div class="kpi-card__left">
               <div class="kpi-card__label">Providers</div>
               <div class="kpi-card__value">${providerRows.length}</div>
+              <div class="kpi-card__sub">active ${activeProviderIds.length} · catalog ${catalogProviders.length}</div>
+            </div>
+            <div class="kpi-card__right">
+              <div class="kpi-card__icon-box"><span>🧩</span></div>
             </div>
           </div>
         </article>
@@ -691,6 +740,10 @@ export function renderModels(props: ModelsProps) {
             <div class="kpi-card__left">
               <div class="kpi-card__label">Configured Models</div>
               <div class="kpi-card__value">${providerModelCount}</div>
+              <div class="kpi-card__sub">catalog known ${catalogModels.length}</div>
+            </div>
+            <div class="kpi-card__right">
+              <div class="kpi-card__icon-box"><span>🧠</span></div>
             </div>
           </div>
         </article>
@@ -699,6 +752,10 @@ export function renderModels(props: ModelsProps) {
             <div class="kpi-card__left">
               <div class="kpi-card__label">Model Aliases</div>
               <div class="kpi-card__value">${aliasRows.filter((row) => row.alias).length}</div>
+              <div class="kpi-card__sub">invalid ${invalidAliasNames.length + invalidModelIdAliases.length}</div>
+            </div>
+            <div class="kpi-card__right">
+              <div class="kpi-card__icon-box"><span>🏷️</span></div>
             </div>
           </div>
         </article>
@@ -707,172 +764,14 @@ export function renderModels(props: ModelsProps) {
             <div class="kpi-card__left">
               <div class="kpi-card__label">Auth Profiles</div>
               <div class="kpi-card__value">${authRows.length}</div>
+              <div class="kpi-card__sub">providers with auth ${authByProvider.size}</div>
+            </div>
+            <div class="kpi-card__right">
+              <div class="kpi-card__icon-box"><span>🔐</span></div>
             </div>
           </div>
         </article>
       </div>
-
-      <section class="card">
-        <div class="card-title">Validation & Suggested Fixes</div>
-        <div class="card-sub">Catch stale mappings and apply safe alias suggestions.</div>
-
-        ${
-          orphanAliases.length === 0 &&
-          invalidModelIdAliases.length === 0 &&
-          invalidAliasNames.length === 0 &&
-          aliasSuggestions.length === 0
-            ? html`<div class="callout" style="margin-top: 10px;">No obvious model mapping issues found.</div>`
-            : html`
-                <div class="stack" style="margin-top: 10px; gap: 12px;">
-                  ${
-                    orphanAliases.length > 0
-                      ? html`
-                          <div>
-                            <div class="muted" style="margin-bottom: 6px;">
-                              Orphan aliases (model id missing from providers): ${orphanAliases.length}
-                            </div>
-                            <div class="models-action-list">
-                              ${orphanAliases.map(
-                                (row) => html`
-                                  <button
-                                    class="btn danger"
-                                    @click=${() =>
-                                      props.onRemove(["agents", "defaults", "models", row.modelId, "alias"])}
-                                  >
-                                    Remove ${row.modelId} → ${row.alias}
-                                  </button>
-                                `,
-                              )}
-                            </div>
-                          </div>
-                        `
-                      : nothing
-                  }
-
-                  ${
-                    invalidModelIdAliases.length > 0
-                      ? html`
-                          <div>
-                            <div class="muted" style="margin-bottom: 6px;">
-                              Invalid model-id keys: ${invalidModelIdAliases.length}
-                            </div>
-                            <div class="models-action-list">
-                              ${invalidModelIdAliases.map(
-                                (row) => html`
-                                  <button
-                                    class="btn danger"
-                                    @click=${() => props.onRemove(["agents", "defaults", "models", row.modelId])}
-                                  >
-                                    Remove invalid key ${row.modelId}
-                                  </button>
-                                `,
-                              )}
-                            </div>
-                          </div>
-                        `
-                      : nothing
-                  }
-
-                  ${
-                    invalidAliasNames.length > 0
-                      ? html`
-                          <div>
-                            <div class="muted" style="margin-bottom: 6px;">
-                              Invalid alias values: ${invalidAliasNames.length}
-                            </div>
-                            <div class="models-action-list">
-                              ${invalidAliasNames.map(
-                                (row) => html`
-                                  <button
-                                    class="btn danger"
-                                    @click=${() =>
-                                      props.onRemove(["agents", "defaults", "models", row.modelId, "alias"])}
-                                  >
-                                    Clear invalid alias on ${row.modelId}
-                                  </button>
-                                `,
-                              )}
-                            </div>
-                          </div>
-                        `
-                      : nothing
-                  }
-
-                  ${
-                    aliasSuggestions.length > 0
-                      ? html`
-                          <div>
-                            <div class="muted" style="margin-bottom: 6px;">
-                              Suggested aliases for configured models: ${aliasSuggestions.length}
-                            </div>
-                            <div class="models-action-list" style="margin-bottom: 8px;">
-                              <button
-                                class="btn"
-                                @click=${() => {
-                                  const batch = aliasSuggestions.slice(0, 20);
-                                  if (
-                                    batch.length > 1 &&
-                                    !confirm(`Apply ${batch.length} suggested aliases?`)
-                                  ) {
-                                    return;
-                                  }
-                                  for (const row of batch) {
-                                    props.onPatch(
-                                      ["agents", "defaults", "models", row.modelId, "alias"],
-                                      row.alias,
-                                    );
-                                  }
-                                }}
-                              >
-                                Apply shown suggestions
-                              </button>
-                            </div>
-                            <table class="react-provider-table usage-detail-table">
-                              <thead>
-                                <tr>
-                                  <th>Model ID</th>
-                                  <th>Suggested Alias</th>
-                                  <th></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                ${aliasSuggestions.slice(0, 20).map(
-                                  (row) => html`
-                                    <tr>
-                                      <td><span class="react-model-label">${row.modelId}</span></td>
-                                      <td><span class="react-provider-badge">${row.alias}</span></td>
-                                      <td>
-                                        <button
-                                          class="btn"
-                                          @click=${() =>
-                                            props.onPatch(
-                                              ["agents", "defaults", "models", row.modelId, "alias"],
-                                              row.alias,
-                                            )}
-                                        >
-                                          Apply
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  `,
-                                )}
-                              </tbody>
-                            </table>
-                            ${
-                              aliasSuggestions.length > 20
-                                ? html`<div class="muted" style="margin-top: 6px;">
-                                    Showing first 20 suggestions.
-                                  </div>`
-                                : nothing
-                            }
-                          </div>
-                        `
-                      : nothing
-                  }
-                </div>
-              `
-        }
-      </section>
 
       <section class="card">
         <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
@@ -899,27 +798,37 @@ export function renderModels(props: ModelsProps) {
             const form = event.currentTarget as HTMLFormElement;
             const data = new FormData(form);
             const providerId = asString(data.get("providerId"));
-            const modelId = asString(data.get("modelId"));
             const auth = normalizeAuthMode(asString(data.get("auth")));
             const alias = asString(data.get("alias"));
             const apiKey = asString(data.get("apiKey"));
+            const modelSelect = form.elements.namedItem("modelIds");
 
-            if (!providerId || !modelId) {
+            if (!providerId || !(modelSelect instanceof HTMLSelectElement)) {
+              return;
+            }
+            const selectedModelIds = Array.from(modelSelect.selectedOptions)
+              .map((option) => asString(option.value))
+              .filter(Boolean);
+            if (selectedModelIds.length === 0) {
+              alert("Select at least one model.");
               return;
             }
             if (!isProviderIdValid(providerId)) {
               alert("Provider id can use letters/numbers and . _ - only (no spaces).");
               return;
             }
-            if (!isModelIdValid(modelId)) {
-              alert("Model id cannot contain spaces.");
+            if (selectedModelIds.some((modelId) => !isModelIdValid(modelId))) {
+              alert("One or more selected model ids are invalid.");
               return;
             }
 
             const catalogRows = catalogModelsByProvider.get(providerId) ?? [];
-            const selected = catalogRows.find((row) => row.id === modelId);
-            if (!selected) {
-              alert("Selected provider/model is not in the catalog list. Try re-selecting provider.");
+            const catalogById = new Map(catalogRows.map((row) => [row.id, row]));
+            const selectedRows = selectedModelIds
+              .map((modelId) => catalogById.get(modelId))
+              .filter((row): row is CatalogModelRow => Boolean(row));
+            if (selectedRows.length !== selectedModelIds.length) {
+              alert("Some selected models were not found in catalog. Re-select provider and models.");
               return;
             }
 
@@ -931,12 +840,16 @@ export function renderModels(props: ModelsProps) {
               return;
             }
 
-            const qualifiedModelId = `${providerId}/${selected.id}`;
+            if (alias && selectedRows.length !== 1) {
+              alert("Alias can only be set when exactly one model is selected.");
+              return;
+            }
             if (alias) {
               if (!isAliasValid(alias)) {
                 alert("Alias should start with a letter and contain only letters/numbers/._-.");
                 return;
               }
+              const qualifiedModelId = `${providerId}/${selectedRows[0].id}`;
               const conflict = aliasRows.find(
                 (row) =>
                   row.modelId !== qualifiedModelId && row.alias.toLowerCase() === alias.toLowerCase(),
@@ -955,17 +868,17 @@ export function renderModels(props: ModelsProps) {
               auth: auth || template.auth,
               apiKey,
             });
-            nextProvider.models = upsertModelRows(
+            nextProvider.models = upsertCatalogModelRows(
               provider?.modelRows ?? [],
-              selected.id,
-              selected.name || selected.id,
-              null,
-              null,
+              selectedRows.map((row) => ({ id: row.id, name: row.name || row.id })),
             );
             props.onPatch(["models", "providers", providerId], nextProvider);
 
-            if (alias) {
-              props.onPatch(["agents", "defaults", "models", qualifiedModelId, "alias"], alias);
+            if (alias && selectedRows.length === 1) {
+              props.onPatch(
+                ["agents", "defaults", "models", `${providerId}/${selectedRows[0].id}`, "alias"],
+                alias,
+              );
             }
 
             const normalizedAuth = normalizeAuthMode(auth || template.auth);
@@ -989,6 +902,7 @@ export function renderModels(props: ModelsProps) {
             if (authSelect instanceof HTMLSelectElement) {
               authSelect.value = normalizedAuth;
             }
+            updateEasyAliasPlaceholder(form, providerId, catalogModelsByProvider);
           }}
         >
           <select
@@ -1000,10 +914,11 @@ export function renderModels(props: ModelsProps) {
               if (!form) {
                 return;
               }
-              setEasyModelOptions(form, asString(select.value), catalogModelsByProvider);
+              const providerId = asString(select.value);
+              setEasyModelOptions(form, providerId, catalogModelsByProvider);
               const authSelect = form.elements.namedItem("auth");
               if (authSelect instanceof HTMLSelectElement) {
-                const template = resolveProviderTemplate(asString(select.value), providerById.get(asString(select.value)));
+                const template = resolveProviderTemplate(providerId, providerById.get(providerId));
                 authSelect.value = template.auth || authSelect.value;
               }
             }}
@@ -1019,34 +934,36 @@ export function renderModels(props: ModelsProps) {
               `,
             )}
           </select>
-          <select
-            name="modelId"
-            required
-            @change=${(event: Event) => {
-              const select = event.currentTarget as HTMLSelectElement;
-              const form = select.form;
-              if (!form) {
-                return;
-              }
-              const providerSelect = form.elements.namedItem("providerId");
-              const aliasInput = form.elements.namedItem("alias");
-              if (!(providerSelect instanceof HTMLSelectElement) || !(aliasInput instanceof HTMLInputElement)) {
-                return;
-              }
-              const providerId = asString(providerSelect.value);
-              const modelId = asString(select.value);
-              aliasInput.placeholder = modelId
-                ? `alias (optional, e.g. ${deriveAliasSeed(`${providerId}/${modelId}`)})`
-                : "alias (optional)";
-            }}
-          >
-            ${defaultEasyModels.length > 0
-              ? defaultEasyModels.map(
-                  (row, idx) =>
-                    html`<option value=${row.id} ?selected=${idx === 0}>${row.name} (${row.id})</option>`,
-                )
-              : html`<option value="" disabled selected>no catalog models</option>`}
-          </select>
+
+          <div class="models-multi-select-wrap">
+            <select
+              name="modelIds"
+              multiple
+              size="8"
+              required
+              @change=${(event: Event) => {
+                const select = event.currentTarget as HTMLSelectElement;
+                const form = select.form;
+                if (!form) {
+                  return;
+                }
+                const providerSelect = form.elements.namedItem("providerId");
+                if (!(providerSelect instanceof HTMLSelectElement)) {
+                  return;
+                }
+                updateEasyAliasPlaceholder(form, asString(providerSelect.value), catalogModelsByProvider);
+              }}
+            >
+              ${defaultEasyModels.length > 0
+                ? defaultEasyModels.map(
+                    (row, idx) =>
+                      html`<option value=${row.id} ?selected=${idx === 0}>${row.name} (${row.id})</option>`,
+                  )
+                : html`<option value="" disabled selected>no catalog models</option>`}
+            </select>
+            <div class="models-inline-help">Ctrl/⌘ + click to select multiple models</div>
+          </div>
+
           <select name="auth">
             ${AUTH_MODE_OPTIONS.map((mode) => {
               const recommended = resolveProviderTemplate(
@@ -1063,7 +980,7 @@ export function renderModels(props: ModelsProps) {
             pattern="[A-Za-z][A-Za-z0-9._-]*"
             title="start with letter; use letters/numbers/._-"
           />
-          <button class="btn" type="submit">Add Provider + Model</button>
+          <button class="btn" type="submit">Add Provider + Selected Models</button>
         </form>
 
         <div class="models-provider-pill-list models-provider-pill-list--catalog">
@@ -1078,14 +995,17 @@ export function renderModels(props: ModelsProps) {
       </section>
 
       <section class="card">
-        <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
-          <div>
-            <div class="card-title">Advanced Setup Wizard</div>
-            <div class="card-sub">Manual provider/model fields for custom endpoints and edge cases.</div>
-          </div>
-        </div>
-        <form
-          class="models-wizard-form models-wizard-form--advanced"
+        <details class="models-collapse">
+          <summary class="models-collapse__summary">
+            <div>
+              <div class="card-title">Advanced Setup Wizard</div>
+              <div class="card-sub">Manual provider/model fields for custom endpoints and edge cases.</div>
+            </div>
+            <span class="models-collapse__hint">Click to expand</span>
+          </summary>
+          <div class="models-collapse__body">
+            <form
+              class="models-wizard-form models-wizard-form--advanced"
           @submit=${(event: SubmitEvent) => {
             event.preventDefault();
             const form = event.currentTarget as HTMLFormElement;
@@ -1231,356 +1151,370 @@ export function renderModels(props: ModelsProps) {
             title="start with letter; use letters/numbers/._-"
           />
           <button class="btn" type="submit">Run Advanced Wizard</button>
-        </form>
+            </form>
+          </div>
+        </details>
       </section>
 
       <section class="card">
         <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
           <div>
             <div class="card-title">Providers</div>
-            <div class="card-sub">Register API endpoints and attach model catalogs.</div>
+            <div class="card-sub">Click a provider to expand details and manage active models.</div>
           </div>
-          <form
-            class="row"
-            style="gap: 8px; flex-wrap: wrap; justify-content: flex-end;"
-            @submit=${(event: SubmitEvent) => {
-              event.preventDefault();
-              const form = event.currentTarget as HTMLFormElement;
-              const data = new FormData(form);
-              const providerId = asString(data.get("providerId"));
-              const baseUrl = asString(data.get("baseUrl"));
-              const api = asString(data.get("api"));
-              const auth = asString(data.get("auth"));
-              const apiKey = asString(data.get("apiKey"));
-              if (!providerId || !baseUrl) {
-                return;
-              }
-              if (!isProviderIdValid(providerId)) {
-                alert(
-                  "Provider id can use letters/numbers and . _ - only (no spaces). Example: qwen-portal",
-                );
-                return;
-              }
-              if (!/^https?:\/\//i.test(baseUrl)) {
-                alert("Base URL should start with http:// or https://");
-                return;
-              }
-              const current = providerById.get(providerId)?.raw ?? null;
-              props.onPatch(
-                ["models", "providers", providerId],
-                createProviderObject({ current, baseUrl, api, auth, apiKey }),
-              );
-              form.reset();
-            }}
-          >
-            <input
-              name="providerId"
-              placeholder="provider id (e.g. xai)"
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
-              title="letters/numbers + . _ - only"
-              required
-            />
-            <input name="baseUrl" placeholder="base URL" type="url" required />
-            <select name="api">
-              <option value="">api (optional)</option>
-              ${MODEL_API_OPTIONS.map((api) => html`<option value=${api}>${api}</option>`)}
-            </select>
-            <select name="auth">
-              <option value="">auth (optional)</option>
-              ${AUTH_MODE_OPTIONS.map((mode) => html`<option value=${mode}>${mode}</option>`)}
-            </select>
-            <input name="apiKey" placeholder="api key/env ref (optional)" />
-            <button class="btn" type="submit">Add / Update Provider</button>
-          </form>
+          <span class="pill">providers ${providerDisplayIds.length}</span>
         </div>
 
-        ${
-          providerRows.length === 0
-            ? html`<div class="callout" style="margin-top: 12px;">No providers configured in models.providers.</div>`
-            : html`
-                <div class="stack" style="margin-top: 12px; gap: 14px;">
-                  ${providerRows.map((provider) => {
-                    const providerAuthCount = authByProvider.get(provider.id) ?? 0;
-                    const providerAuthMode = normalizeAuthMode(provider.auth);
-                    const needsAuthProfile =
-                      AUTH_PROFILE_REQUIRED_MODES.has(providerAuthMode) && providerAuthCount === 0;
-                    return html`
-                      <article class="models-provider-card">
-                        <div class="row" style="justify-content: space-between; align-items: center; gap: 8px;">
-                          <div>
-                            <strong>${provider.id}</strong>
-                            <div class="muted" style="font-size: 11px; margin-top: 2px;">
-                              ${provider.baseUrl || "(no baseUrl)"}
-                              ${provider.api ? html` · ${provider.api}` : nothing}
-                              ${provider.auth ? html` · auth=${provider.auth}` : nothing}
-                              · ${provider.modelRows.length} models
-                              · ${providerAuthCount} auth profile(s)
-                            </div>
-                          </div>
-                          <button
-                            class="btn danger"
-                            @click=${() => {
-                              if (!confirm(`Delete provider ${provider.id}?`)) {
-                                return;
-                              }
-                              props.onRemove(["models", "providers", provider.id]);
-                            }}
-                          >
-                            Remove Provider
-                          </button>
-                        </div>
-
-                        ${
-                          needsAuthProfile
-                            ? html`<div class="callout warning" style="margin-top: 8px;">
-                                Missing auth profile for <b>${provider.id}</b> (${providerAuthMode}).
-                                Add one in <code>auth.profiles</code> to avoid auth errors.
-                                <button
-                                  class="btn"
-                                  style="margin-left: 8px;"
-                                  @click=${() =>
-                                    props.onPatch(["auth", "profiles", `${provider.id}:default`], {
-                                      provider: provider.id,
-                                      mode: providerAuthMode,
-                                    })}
-                                >
-                                  Create profile stub
-                                </button>
-                              </div>`
-                            : nothing
-                        }
-
-                        <form
-                          class="row"
-                          style="margin-top: 8px; gap: 8px; flex-wrap: wrap;"
-                          @submit=${(event: SubmitEvent) => {
-                            event.preventDefault();
-                            const form = event.currentTarget as HTMLFormElement;
-                            const data = new FormData(form);
-                            const modelId = asString(data.get("modelId"));
-                            const modelName = asString(data.get("modelName"));
-                            if (!modelId || !modelName) {
-                              return;
-                            }
-                            if (!isModelIdValid(modelId)) {
-                              alert("Model id cannot contain spaces.");
-                              return;
-                            }
-                            const contextWindow = normalizePositiveInteger(data.get("contextWindow"));
-                            const maxTokens = normalizePositiveInteger(data.get("maxTokens"));
-                            const nextModelsRaw = upsertModelRows(
-                              provider.modelRows,
-                              modelId,
-                              modelName,
-                              contextWindow,
-                              maxTokens,
-                            );
-                            props.onPatch(["models", "providers", provider.id, "models"], nextModelsRaw);
-                            form.reset();
-                          }}
-                        >
-                          <input
-                            name="modelId"
-                            placeholder="model id"
-                            pattern="\\S+"
-                            title="no spaces"
-                            required
-                          />
-                          <input name="modelName" placeholder="display name" required />
-                          <input name="contextWindow" type="number" min="1" step="1" placeholder="context" />
-                          <input name="maxTokens" type="number" min="1" step="1" placeholder="max tokens" />
-                          <button class="btn" type="submit">Add / Update Model</button>
-                        </form>
-
-                        ${
-                          provider.modelRows.length === 0
-                            ? html`<div class="muted" style="margin-top: 10px;">No models yet.</div>`
-                            : html`
-                                <table class="react-provider-table usage-detail-table" style="margin-top: 10px;">
-                                  <thead>
-                                    <tr>
-                                      <th>Model</th>
-                                      <th>Name</th>
-                                      <th>Context</th>
-                                      <th>Max Tokens</th>
-                                      <th></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    ${provider.modelRows.map(
-                                      (model) => html`
-                                        <tr>
-                                          <td><span class="react-model-label">${model.id}</span></td>
-                                          <td>${model.name}</td>
-                                          <td>${model.contextWindow?.toLocaleString() ?? "--"}</td>
-                                          <td>${model.maxTokens?.toLocaleString() ?? "--"}</td>
-                                          <td>
-                                            <button
-                                              class="btn danger"
-                                              @click=${() => {
-                                                const nextModels = provider.modelRows
-                                                  .filter((entry) => entry.id !== model.id)
-                                                  .map((entry) => entry.raw);
-                                                props.onPatch([
-                                                  "models",
-                                                  "providers",
-                                                  provider.id,
-                                                  "models",
-                                                ], nextModels);
-                                              }}
-                                            >
-                                              Remove
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      `,
-                                    )}
-                                  </tbody>
-                                </table>
-                              `
-                        }
-                      </article>
-                    `;
-                  })}
-                </div>
-              `
-        }
-      </section>
-
-      <section class="card" style="margin-top: 16px;">
-        <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
-          <div>
-            <div class="card-title">Model Aliases</div>
-            <div class="card-sub">Manage agents.defaults.models alias mapping.</div>
-          </div>
-          <form
-            class="row"
-            style="gap: 8px; flex-wrap: wrap; justify-content: flex-end;"
-            @submit=${(event: SubmitEvent) => {
-              event.preventDefault();
-              const form = event.currentTarget as HTMLFormElement;
-              const data = new FormData(form);
-              const modelId = asString(data.get("modelId"));
-              const alias = asString(data.get("alias"));
-              if (!modelId || !alias) {
-                return;
-              }
-              if (!isQualifiedModelId(modelId)) {
-                alert("Model id should look like provider/model (no spaces).");
-                return;
-              }
-              if (!isAliasValid(alias)) {
-                alert("Alias should start with a letter and contain only letters/numbers/._-.");
-                return;
-              }
-              const conflict = aliasRows.find(
-                (row) => row.modelId !== modelId && row.alias.toLowerCase() === alias.toLowerCase(),
+        <form
+          class="models-wizard-form"
+          style="margin-top: 10px;"
+          @submit=${(event: SubmitEvent) => {
+            event.preventDefault();
+            const form = event.currentTarget as HTMLFormElement;
+            const data = new FormData(form);
+            const providerId = asString(data.get("providerId"));
+            const baseUrl = asString(data.get("baseUrl"));
+            const api = asString(data.get("api"));
+            const auth = asString(data.get("auth"));
+            const apiKey = asString(data.get("apiKey"));
+            if (!providerId || !baseUrl) {
+              return;
+            }
+            if (!isProviderIdValid(providerId)) {
+              alert(
+                "Provider id can use letters/numbers and . _ - only (no spaces). Example: qwen-portal",
               );
-              if (conflict) {
-                alert(`Alias ${alias} is already used by ${conflict.modelId}.`);
-                return;
-              }
-              props.onPatch(["agents", "defaults", "models", modelId, "alias"], alias);
-              form.reset();
-            }}
-          >
-            <input
-              name="modelId"
-              placeholder="provider/model"
-              list="models-known-ids"
-              pattern="[^\\s/]+/\\S+"
-              title="format: provider/model"
-              required
-            />
-            <input
-              name="alias"
-              placeholder="alias"
-              pattern="[A-Za-z][A-Za-z0-9._-]*"
-              title="start with letter; use letters/numbers/._-"
-              required
-            />
-            <button class="btn" type="submit">Add Alias</button>
-          </form>
-        </div>
+              return;
+            }
+            if (!/^https?:\/\//i.test(baseUrl)) {
+              alert("Base URL should start with http:// or https://");
+              return;
+            }
+            const current = providerById.get(providerId)?.raw ?? null;
+            props.onPatch(
+              ["models", "providers", providerId],
+              createProviderObject({ current, baseUrl, api, auth, apiKey }),
+            );
+            form.reset();
+          }}
+        >
+          <input
+            name="providerId"
+            placeholder="provider id (e.g. xai)"
+            pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
+            title="letters/numbers + . _ - only"
+            required
+          />
+          <input name="baseUrl" placeholder="base URL" type="url" required />
+          <select name="api">
+            <option value="">api (optional)</option>
+            ${MODEL_API_OPTIONS.map((api) => html`<option value=${api}>${api}</option>`)}
+          </select>
+          <select name="auth">
+            <option value="">auth (optional)</option>
+            ${AUTH_MODE_OPTIONS.map((mode) => html`<option value=${mode}>${mode}</option>`)}
+          </select>
+          <input name="apiKey" placeholder="api key/env ref (optional)" />
+          <button class="btn" type="submit">Add / Update Provider</button>
+        </form>
 
-        ${
-          invalidModelIdAliases.length > 0 || invalidAliasNames.length > 0
-            ? html`<div class="callout warning" style="margin-top: 12px;">
-                Found ${invalidModelIdAliases.length} invalid model id entr${
-                  invalidModelIdAliases.length === 1 ? "y" : "ies"
-                } and ${invalidAliasNames.length} invalid alias entr${
-                  invalidAliasNames.length === 1 ? "y" : "ies"
-                }.
-                Model id should look like <code>provider/model</code>, alias should start with a
-                letter and contain only letters/numbers/._-.
-              </div>`
-            : nothing
-        }
+        <div class="models-provider-accordion-list" style="margin-top: 12px;">
+          ${providerDisplayIds.map((providerId) => {
+            const provider = providerById.get(providerId);
+            const providerModels = provider?.modelRows ?? [];
+            const providerAuthCount = authByProvider.get(providerId) ?? 0;
+            const template = resolveProviderTemplate(providerId, provider);
+            const catalogCount = catalogModelsByProvider.get(providerId)?.length ?? 0;
+            const isActive = activeProviderIdSet.has(providerId);
+            return html`
+              <details class="models-provider-accordion" ?open=${isActive || providerId === defaultEasyProviderId}>
+                <summary class="models-provider-accordion__summary">
+                  <div>
+                    <strong>${providerId}</strong>
+                    <div class="muted" style="font-size: 11px; margin-top: 2px;">
+                      ${provider ? "configured" : "not configured"} · active models ${providerModels.length} · catalog ${catalogCount}
+                    </div>
+                  </div>
+                  <div class="models-provider-accordion__summary-badges">
+                    ${isActive ? html`<span class="models-provider-pill is-active">active</span>` : nothing}
+                    ${provider ? html`<span class="models-provider-pill">auth ${providerAuthCount}</span>` : nothing}
+                  </div>
+                </summary>
 
-        ${
-          aliasRows.length === 0
-            ? html`<div class="callout" style="margin-top: 12px;">No alias entries found in agents.defaults.models.</div>`
-            : html`
-                <table class="react-provider-table usage-detail-table" style="margin-top: 12px;">
-                  <thead>
-                    <tr>
-                      <th>Model ID</th>
-                      <th>Alias</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${aliasRows.map(
-                      (row) => html`
-                        <tr>
-                          <td><span class="react-model-label">${row.modelId}</span></td>
-                          <td>
-                            <input
-                              value=${row.alias}
-                              placeholder="(no alias)"
-                              pattern="[A-Za-z][A-Za-z0-9._-]*"
-                              title="start with letter; use letters/numbers/._-"
-                              @change=${(event: Event) => {
-                                const value = asString((event.target as HTMLInputElement).value);
-                                if (!value) {
-                                  props.onRemove(["agents", "defaults", "models", row.modelId, "alias"]);
-                                  return;
-                                }
-                                if (!isAliasValid(value)) {
-                                  alert("Alias should start with a letter and contain only letters/numbers/._-.");
-                                  (event.target as HTMLInputElement).value = row.alias;
-                                  return;
-                                }
-                                const conflict = aliasRows.find(
-                                  (entry) =>
-                                    entry.modelId !== row.modelId &&
-                                    entry.alias.toLowerCase() === value.toLowerCase(),
-                                );
-                                if (conflict) {
-                                  alert(`Alias ${value} is already used by ${conflict.modelId}.`);
-                                  (event.target as HTMLInputElement).value = row.alias;
-                                  return;
-                                }
-                                props.onPatch(["agents", "defaults", "models", row.modelId, "alias"], value);
-                              }}
-                            />
-                          </td>
-                          <td>
+                <div class="models-provider-accordion__body">
+                  <div class="muted" style="font-size: 11px; margin-bottom: 10px;">
+                    base ${provider?.baseUrl || template.baseUrl || "--"}
+                    · api ${provider?.api || template.api}
+                    · auth ${provider?.auth || template.auth}
+                  </div>
+
+                  ${
+                    provider
+                      ? html`
+                          <div class="models-action-list" style="margin-bottom: 10px;">
                             <button
                               class="btn danger"
-                              @click=${() =>
-                                props.onRemove(["agents", "defaults", "models", row.modelId, "alias"])}
+                              @click=${() => {
+                                if (!confirm(`Delete provider ${provider.id}?`)) {
+                                  return;
+                                }
+                                props.onRemove(["models", "providers", provider.id]);
+                              }}
                             >
-                              Remove Alias
+                              Remove Provider
                             </button>
-                          </td>
+                          </div>
+
+                          <form
+                            class="models-wizard-form"
+                            style="margin-top: 0;"
+                            @submit=${(event: SubmitEvent) => {
+                              event.preventDefault();
+                              const form = event.currentTarget as HTMLFormElement;
+                              const data = new FormData(form);
+                              const modelId = asString(data.get("modelId"));
+                              const modelName = asString(data.get("modelName"));
+                              if (!modelId || !modelName) {
+                                return;
+                              }
+                              if (!isModelIdValid(modelId)) {
+                                alert("Model id cannot contain spaces.");
+                                return;
+                              }
+                              const contextWindow = normalizePositiveInteger(data.get("contextWindow"));
+                              const maxTokens = normalizePositiveInteger(data.get("maxTokens"));
+                              const nextModelsRaw = upsertModelRows(
+                                provider.modelRows,
+                                modelId,
+                                modelName,
+                                contextWindow,
+                                maxTokens,
+                              );
+                              props.onPatch(["models", "providers", provider.id, "models"], nextModelsRaw);
+                              form.reset();
+                            }}
+                          >
+                            <input
+                              name="modelId"
+                              placeholder="model id"
+                              pattern="\\S+"
+                              title="no spaces"
+                              required
+                            />
+                            <input name="modelName" placeholder="display name" required />
+                            <input name="contextWindow" type="number" min="1" step="1" placeholder="context" />
+                            <input name="maxTokens" type="number" min="1" step="1" placeholder="max tokens" />
+                            <button class="btn" type="submit">Add / Update Model</button>
+                          </form>
+
+                          ${
+                            providerModels.length === 0
+                              ? html`<div class="muted" style="margin-top: 10px;">No active models.</div>`
+                              : html`
+                                  <table class="react-provider-table usage-detail-table" style="margin-top: 10px;">
+                                    <thead>
+                                      <tr>
+                                        <th>Model</th>
+                                        <th>Name</th>
+                                        <th>Context</th>
+                                        <th>Max Tokens</th>
+                                        <th></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      ${providerModels.map(
+                                        (model) => html`
+                                          <tr>
+                                            <td><span class="react-model-label">${model.id}</span></td>
+                                            <td>${model.name}</td>
+                                            <td>${model.contextWindow?.toLocaleString() ?? "--"}</td>
+                                            <td>${model.maxTokens?.toLocaleString() ?? "--"}</td>
+                                            <td>
+                                              <button
+                                                class="btn danger"
+                                                @click=${() => {
+                                                  const nextModels = providerModels
+                                                    .filter((entry) => entry.id !== model.id)
+                                                    .map((entry) => entry.raw);
+                                                  props.onPatch([
+                                                    "models",
+                                                    "providers",
+                                                    provider.id,
+                                                    "models",
+                                                  ], nextModels);
+                                                }}
+                                              >
+                                                Remove
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        `,
+                                      )}
+                                    </tbody>
+                                  </table>
+                                `
+                          }
+                        `
+                      : html`
+                          <div class="callout" style="margin-top: 4px;">
+                            This provider is not configured yet.
+                            ${
+                              template.baseUrl
+                                ? html`
+                                    <button
+                                      class="btn"
+                                      style="margin-left: 8px;"
+                                      @click=${() =>
+                                        props.onPatch(
+                                          ["models", "providers", providerId],
+                                          createProviderObject({
+                                            current: null,
+                                            baseUrl: template.baseUrl,
+                                            api: template.api,
+                                            auth: template.auth,
+                                            apiKey: "",
+                                          }),
+                                        )}
+                                    >
+                                      Create from template
+                                    </button>
+                                  `
+                                : nothing
+                            }
+                          </div>
+                        `
+                  }
+                </div>
+              </details>
+            `;
+          })}
+        </div>
+      </section>
+      <section class="card" style="margin-top: 16px;">
+        <details class="models-collapse">
+          <summary class="models-collapse__summary">
+            <div>
+              <div class="card-title">Model Aliases</div>
+              <div class="card-sub">Manage <code>agents.defaults.models</code> alias mapping.</div>
+            </div>
+            <span class="models-collapse__hint">Click to expand</span>
+          </summary>
+          <div class="models-collapse__body">
+            <form
+              class="models-wizard-form"
+              style="margin-top: 0;"
+              @submit=${(event: SubmitEvent) => {
+                event.preventDefault();
+                const form = event.currentTarget as HTMLFormElement;
+                const data = new FormData(form);
+                const modelId = asString(data.get("modelId"));
+                const alias = asString(data.get("alias"));
+                if (!modelId || !alias) {
+                  return;
+                }
+                if (!isQualifiedModelId(modelId)) {
+                  alert("Model id should look like provider/model (no spaces).");
+                  return;
+                }
+                if (!isAliasValid(alias)) {
+                  alert("Alias should start with a letter and contain only letters/numbers/._-.");
+                  return;
+                }
+                const conflict = aliasRows.find(
+                  (row) => row.modelId !== modelId && row.alias.toLowerCase() === alias.toLowerCase(),
+                );
+                if (conflict) {
+                  alert(`Alias ${alias} is already used by ${conflict.modelId}.`);
+                  return;
+                }
+                props.onPatch(["agents", "defaults", "models", modelId, "alias"], alias);
+                form.reset();
+              }}
+            >
+              <input
+                name="modelId"
+                placeholder="provider/model"
+                list="models-known-ids"
+                pattern="[^\\s/]+/\\S+"
+                title="format: provider/model"
+                required
+              />
+              <input
+                name="alias"
+                placeholder="alias"
+                pattern="[A-Za-z][A-Za-z0-9._-]*"
+                title="start with letter; use letters/numbers/._-"
+                required
+              />
+              <button class="btn" type="submit">Add Alias</button>
+            </form>
+
+            ${
+              aliasRows.length === 0
+                ? html`<div class="callout" style="margin-top: 12px;">No alias entries found in agents.defaults.models.</div>`
+                : html`
+                    <table class="react-provider-table usage-detail-table" style="margin-top: 12px;">
+                      <thead>
+                        <tr>
+                          <th>Model ID</th>
+                          <th>Alias</th>
+                          <th></th>
                         </tr>
-                      `,
-                    )}
-                  </tbody>
-                </table>
-              `
-        }
+                      </thead>
+                      <tbody>
+                        ${aliasRows.map(
+                          (row) => html`
+                            <tr>
+                              <td><span class="react-model-label">${row.modelId}</span></td>
+                              <td>
+                                <input
+                                  value=${row.alias}
+                                  placeholder="(no alias)"
+                                  pattern="[A-Za-z][A-Za-z0-9._-]*"
+                                  title="start with letter; use letters/numbers/._-"
+                                  @change=${(event: Event) => {
+                                    const value = asString((event.target as HTMLInputElement).value);
+                                    if (!value) {
+                                      props.onRemove(["agents", "defaults", "models", row.modelId, "alias"]);
+                                      return;
+                                    }
+                                    if (!isAliasValid(value)) {
+                                      alert("Alias should start with a letter and contain only letters/numbers/._-.");
+                                      (event.target as HTMLInputElement).value = row.alias;
+                                      return;
+                                    }
+                                    const conflict = aliasRows.find(
+                                      (entry) =>
+                                        entry.modelId !== row.modelId &&
+                                        entry.alias.toLowerCase() === value.toLowerCase(),
+                                    );
+                                    if (conflict) {
+                                      alert(`Alias ${value} is already used by ${conflict.modelId}.`);
+                                      (event.target as HTMLInputElement).value = row.alias;
+                                      return;
+                                    }
+                                    props.onPatch(["agents", "defaults", "models", row.modelId, "alias"], value);
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <button
+                                  class="btn danger"
+                                  @click=${() =>
+                                    props.onRemove(["agents", "defaults", "models", row.modelId, "alias"])}
+                                >
+                                  Remove Alias
+                                </button>
+                              </td>
+                            </tr>
+                          `,
+                        )}
+                      </tbody>
+                    </table>
+                  `
+            }
+          </div>
+        </details>
       </section>
 
       <section class="card" style="margin-top: 16px;">
