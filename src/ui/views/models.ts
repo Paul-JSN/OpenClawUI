@@ -602,9 +602,28 @@ export function renderModels(props: ModelsProps) {
     parseCatalogFromSuggestions(props.modelSuggestions),
     DEFAULT_MODELS_CATALOG,
   );
-  const catalogProviders = Array.from(
-    new Set([...DEFAULT_PROVIDER_IDS, ...catalogModels.map((entry) => entry.provider)]),
+
+  const aliasDerivedProviderIds = aliasRows
+    .map((row) => {
+      const slash = row.modelId.indexOf("/");
+      return slash > 0 ? row.modelId.slice(0, slash).trim() : "";
+    })
+    .filter(Boolean);
+
+  const activeProviderIds = Array.from(
+    new Set([...providerRows.map((row) => row.id), ...aliasDerivedProviderIds]),
   ).toSorted((a, b) => a.localeCompare(b));
+  const activeProviderIdSet = new Set(activeProviderIds);
+
+  const catalogProviders = Array.from(
+    new Set([
+      ...DEFAULT_PROVIDER_IDS,
+      ...providerRows.map((row) => row.id),
+      ...aliasDerivedProviderIds,
+      ...catalogModels.map((entry) => entry.provider),
+    ]),
+  ).toSorted((a, b) => a.localeCompare(b));
+
   const catalogModelsByProvider = new Map<string, CatalogModelRow[]>();
   for (const row of catalogModels) {
     const list = catalogModelsByProvider.get(row.provider) ?? [];
@@ -616,18 +635,6 @@ export function renderModels(props: ModelsProps) {
     .flatMap((provider) => provider.modelRows.map((model) => `${provider.id}/${model.id}`))
     .toSorted((a, b) => a.localeCompare(b));
   const providerModelIdSet = new Set(providerModelIds);
-
-  const activeProviderIds = Array.from(
-    new Set([
-      ...providerRows.map((row) => row.id),
-      ...aliasRows
-        .map((row) => {
-          const slash = row.modelId.indexOf("/");
-          return slash > 0 ? row.modelId.slice(0, slash).trim() : "";
-        })
-        .filter(Boolean),
-    ]),
-  ).toSorted((a, b) => a.localeCompare(b));
 
   const knownModelIds = Array.from(
     new Set([
@@ -643,8 +650,17 @@ export function renderModels(props: ModelsProps) {
     (row) => row.alias && isQualifiedModelId(row.modelId) && !providerModelIdSet.has(row.modelId),
   );
   const aliasSuggestions = buildAliasSuggestions(providerModelIds, aliasRows);
+  const providersWithCatalogModels = catalogProviders.filter(
+    (providerId) => (catalogModelsByProvider.get(providerId)?.length ?? 0) > 0,
+  );
+  const providersWithCatalogModelSet = new Set(providersWithCatalogModels);
   const defaultEasyProviderId =
-    activeProviderIds[0] ?? catalogProviders[0] ?? providerRows[0]?.id ?? "";
+    activeProviderIds.find((providerId) => providersWithCatalogModelSet.has(providerId)) ??
+    providersWithCatalogModels[0] ??
+    activeProviderIds[0] ??
+    catalogProviders[0] ??
+    providerRows[0]?.id ??
+    "";
   const defaultEasyModels = defaultEasyProviderId
     ? (catalogModelsByProvider.get(defaultEasyProviderId) ?? [])
     : [];
@@ -788,6 +804,28 @@ export function renderModels(props: ModelsProps) {
                           <div>
                             <div class="muted" style="margin-bottom: 6px;">
                               Suggested aliases for configured models: ${aliasSuggestions.length}
+                            </div>
+                            <div class="models-action-list" style="margin-bottom: 8px;">
+                              <button
+                                class="btn"
+                                @click=${() => {
+                                  const batch = aliasSuggestions.slice(0, 20);
+                                  if (
+                                    batch.length > 1 &&
+                                    !confirm(`Apply ${batch.length} suggested aliases?`)
+                                  ) {
+                                    return;
+                                  }
+                                  for (const row of batch) {
+                                    props.onPatch(
+                                      ["agents", "defaults", "models", row.modelId, "alias"],
+                                      row.alias,
+                                    );
+                                  }
+                                }}
+                              >
+                                Apply shown suggestions
+                              </button>
                             </div>
                             <table class="react-provider-table usage-detail-table">
                               <thead>
@@ -947,6 +985,10 @@ export function renderModels(props: ModelsProps) {
               providerSelect.value = providerId;
               setEasyModelOptions(form, providerId, catalogModelsByProvider);
             }
+            const authSelect = form.elements.namedItem("auth");
+            if (authSelect instanceof HTMLSelectElement) {
+              authSelect.value = normalizedAuth;
+            }
           }}
         >
           <select
@@ -972,7 +1014,7 @@ export function renderModels(props: ModelsProps) {
                   value=${providerId}
                   ?selected=${providerId === defaultEasyProviderId}
                 >
-                  ${providerId}${activeProviderIds.includes(providerId) ? " (active)" : ""}
+                  ${providerId}${activeProviderIdSet.has(providerId) ? " (active)" : ""}
                 </option>
               `,
             )}
@@ -1027,7 +1069,7 @@ export function renderModels(props: ModelsProps) {
         <div class="models-provider-pill-list models-provider-pill-list--catalog">
           ${catalogProviders.map(
             (providerId) => html`
-              <span class="models-provider-pill ${activeProviderIds.includes(providerId) ? "is-active" : ""}">
+              <span class="models-provider-pill ${activeProviderIdSet.has(providerId) ? "is-active" : ""}">
                 ${providerId}
               </span>
             `,
