@@ -4481,9 +4481,27 @@
   align-items: flex-start;
 }
 
+.models-wizard-form--oauth {
+  align-items: flex-end;
+}
+
 .models-wizard-form input,
 .models-wizard-form select {
   min-width: 140px;
+}
+
+.models-oauth-command-preview {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--secondary) 82%, transparent);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.models-oauth-command-preview code {
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .models-multi-select-wrap {

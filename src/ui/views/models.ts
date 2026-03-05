@@ -774,11 +774,27 @@ function resolveProviderAuthValidationError(params: {
       return "opencode does not use OAuth here. Use auth=api-key (OPENCODE_API_KEY) or run: openclaw onboard --auth-choice opencode-zen";
     }
     if ((params.authByProvider.get(params.providerId) ?? 0) === 0) {
-      return `OAuth not completed for ${params.providerId}. Run: openclaw models auth login (pick provider, open link, paste code), then retry.`;
+      return `OAuth not completed for ${params.providerId}. Use the OAuth Run Step in this page (or run: openclaw models auth login --provider ${params.providerId}), then retry.`;
     }
   }
 
   return null;
+}
+
+function shellQuoteArg(value: string): string {
+  if (!value) {
+    return "''";
+  }
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function buildModelsOAuthLoginCommand(providerId: string, method?: string): string {
+  const command = ["openclaw", "models", "auth", "login", "--provider", shellQuoteArg(providerId)];
+  const normalizedMethod = asString(method);
+  if (normalizedMethod) {
+    command.push("--method", shellQuoteArg(normalizedMethod));
+  }
+  return command.join(" ");
 }
 
 function renderModelsKpiIcon(kind: "providers" | "models" | "aliases" | "auth") {
@@ -954,6 +970,18 @@ export function renderModels(props: ModelsProps) {
       return a.localeCompare(b);
     },
   );
+  const oauthProviderIds = providerDisplayIds.filter((providerId) => {
+    const provider = providerById.get(providerId);
+    const template = resolveProviderTemplate(providerId, provider);
+    const hasTemplateOAuth = normalizeAuthMode(template.auth) === "oauth";
+    const hasProviderOAuth = normalizeAuthMode(provider?.auth ?? "") === "oauth";
+    const hasProfileOAuth = authModesByProvider.get(providerId)?.has("oauth") ?? false;
+    return hasTemplateOAuth || hasProviderOAuth || hasProfileOAuth;
+  });
+  const defaultOAuthProviderId =
+    oauthProviderIds.find((providerId) => activeProviderIdSet.has(providerId)) ??
+    oauthProviderIds[0] ??
+    "";
 
   return html`
     <section class="models-page">
@@ -1013,6 +1041,82 @@ export function renderModels(props: ModelsProps) {
           </div>
         </article>
       </div>
+
+      ${
+        oauthProviderIds.length > 0
+          ? html`
+              <section class="card">
+                <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
+                  <div>
+                    <div class="card-title">OAuth Run Step</div>
+                    <div class="card-sub">
+                      Run provider OAuth once, then come back and reload profiles before setting auth=oauth.
+                    </div>
+                  </div>
+                  <span class="pill">oauth providers ${oauthProviderIds.length}</span>
+                </div>
+
+                <form
+                  class="models-wizard-form models-wizard-form--oauth"
+                  @submit=${(event: SubmitEvent) => {
+                    event.preventDefault();
+                    const form = event.currentTarget as HTMLFormElement;
+                    const data = new FormData(form);
+                    const providerId = asString(data.get("providerId"));
+                    const method = asString(data.get("method"));
+                    if (!providerId) {
+                      return;
+                    }
+                    const command = buildModelsOAuthLoginCommand(providerId, method);
+                    if (!navigator.clipboard?.writeText) {
+                      alert(`Clipboard unavailable. Run this command manually:\n\n${command}`);
+                      return;
+                    }
+                    void navigator.clipboard.writeText(command).then(() => {
+                      alert(
+                        `Copied command:\n\n${command}\n\nRun it in a terminal (TTY), finish browser auth, then click Reload Auth Profiles.`,
+                      );
+                    }).catch(() => {
+                      alert(`Copy failed. Run this command manually:\n\n${command}`);
+                    });
+                  }}
+                >
+                  <select name="providerId" required>
+                    ${oauthProviderIds.map((providerId) => {
+                      const hasAuth = (authByProvider.get(providerId) ?? 0) > 0;
+                      return html`
+                        <option
+                          value=${providerId}
+                          ?selected=${providerId === defaultOAuthProviderId}
+                        >
+                          ${providerId}${hasAuth ? " (connected)" : ""}
+                        </option>
+                      `;
+                    })}
+                  </select>
+                  <input
+                    name="method"
+                    placeholder="method id (optional)"
+                    title="Optional provider auth method id"
+                  />
+                  <button class="btn" type="submit">Copy OAuth Login Command</button>
+                  <button class="btn" type="button" @click=${props.onReload}>Reload Auth Profiles</button>
+                </form>
+
+                <div class="models-oauth-command-preview">
+                  <code>
+                    ${defaultOAuthProviderId
+                      ? buildModelsOAuthLoginCommand(defaultOAuthProviderId)
+                      : "openclaw models auth login --provider <provider>"}
+                  </code>
+                </div>
+                <div class="models-inline-help" style="margin-top: 8px;">
+                  Tip: this command requires an interactive terminal. After login succeeds, this page will allow OAuth auth mode without validation warnings.
+                </div>
+              </section>
+            `
+          : nothing
+      }
 
       <section class="card">
         <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 10px;">
