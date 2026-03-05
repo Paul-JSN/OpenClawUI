@@ -13,8 +13,10 @@ export type UsageLimitConfidence = "high" | "medium" | "low";
 
 export type UsageLimitSnapshotEntry = {
   provider: string;
+  providerDisplayName: string;
   model: string;
   windowType: UsageLimitWindowType;
+  windowLabel: string;
   limit: number;
   used: number;
   remaining: number;
@@ -219,8 +221,10 @@ const UsageSummarySchema = z.object({
 
 const UsageLimitSnapshotEntrySchema = z.object({
   provider: z.string(),
+  providerDisplayName: z.string(),
   model: z.string(),
   windowType: z.enum(["per-minute", "per-hour", "per-day", "per-month", "none"]),
+  windowLabel: z.string(),
   limit: z.number().nonnegative(),
   used: z.number().nonnegative(),
   remaining: z.number().nonnegative(),
@@ -406,6 +410,8 @@ type BuildUsageAnalyticsViewModelArgs = {
   overviewUsage24hResult?: SessionsUsageResult | null;
   overviewUsage24hCostSummary?: CostUsageSummary | null;
   overviewUsage24hStatus?: UsageSummary | null;
+  rangeStartDate?: string;
+  rangeEndDate?: string;
   rangeKey?: string;
 };
 
@@ -452,6 +458,37 @@ function cacheUsageVm(args: BuildUsageAnalyticsViewModelArgs, result: UsageAnaly
   if (usageVmCache.length > USAGE_VM_CACHE_MAX_ENTRIES) {
     usageVmCache.length = USAGE_VM_CACHE_MAX_ENTRIES;
   }
+}
+
+function parseYmdToUtcMs(value: string | undefined): number | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+  const [y, m, d] = value.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return null;
+  }
+  return Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+}
+
+function toUtcYmd(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function allDatesInRange(startDate?: string, endDate?: string): string[] {
+  const startMs = parseYmdToUtcMs(startDate);
+  const endMs = parseYmdToUtcMs(endDate);
+  if (startMs == null || endMs == null) {
+    return [];
+  }
+  const from = Math.min(startMs, endMs);
+  const to = Math.max(startMs, endMs);
+  const DAY = 24 * 60 * 60 * 1000;
+  const out: string[] = [];
+  for (let cursor = from; cursor <= to; cursor += DAY) {
+    out.push(toUtcYmd(cursor));
+  }
+  return out;
 }
 
 function normalizeProvider(value: string | undefined): string {
@@ -1122,37 +1159,20 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
     .reduce<number | null>((max, value) => (max == null || value > max ? value : max), null);
 
-  const statusByProvider = new Map<
-    string,
-    { provider: string; displayName: string; windows: Array<{ label: string; usedPercent: number; resetAt?: number }> }
-  >();
-  for (const provider of statusSummary?.providers ?? []) {
-    statusByProvider.set(normalizeProvider(provider.provider), provider);
-  }
-
   const usageLimits: UsageLimitSnapshotEntry[] = [];
-  const seenProviderModels = new Set<string>();
-
-  for (const modelUsage of usageResult?.aggregates.byModel ?? []) {
-    const provider = normalizeProvider(modelUsage.provider);
-    const providerKey = mapProviderToUsageStatusKey(provider);
-    const model = (modelUsage.model ?? "unknown").trim() || "unknown";
-    const uniqueKey = `${provider}:${model}`;
-    if (seenProviderModels.has(uniqueKey)) {
-      continue;
-    }
-    seenProviderModels.add(uniqueKey);
-
-    const providerStatus = statusByProvider.get(providerKey) ?? statusByProvider.get(provider);
-    const window = providerStatus ? bestUsageWindow(providerStatus.windows) : null;
-
-    if (window) {
+  for (const providerStatus of statusSummary?.providers ?? []) {
+    const provider = normalizeProvider(providerStatus.provider);
+    for (const window of providerStatus.windows ?? []) {
       const used = Math.max(0, Math.min(100, window.usedPercent));
       const limit = 100;
       usageLimits.push({
         provider,
-        model,
+        providerDisplayName:
+          providerStatus.displayName?.trim() ||
+          (provider === "google-gemini-cli" ? "Gemini CLI" : provider),
+        model: "--",
         windowType: inferWindowType(window.label),
+        windowLabel: window.label,
         limit,
         used,
         remaining: Math.max(0, limit - used),
@@ -1161,36 +1181,7 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
         freshnessSec: freshnessFromUpdatedAt(statusSummary?.updatedAt ?? latestUpdatedAt, now),
         confidence: "high",
       });
-      continue;
     }
-
-  }
-
-  for (const providerStatus of statusSummary?.providers ?? []) {
-    const provider = normalizeProvider(providerStatus.provider);
-    const uniqueKey = `${provider}:unknown`;
-    if (seenProviderModels.has(uniqueKey)) {
-      continue;
-    }
-    const window = bestUsageWindow(providerStatus.windows);
-    if (!window) {
-      continue;
-    }
-    seenProviderModels.add(uniqueKey);
-    const used = Math.max(0, Math.min(100, window.usedPercent));
-    const limit = 100;
-    usageLimits.push({
-      provider,
-      model: "unknown",
-      windowType: inferWindowType(window.label),
-      limit,
-      used,
-      remaining: Math.max(0, limit - used),
-      resetAt: dateFromTimestamp(window.resetAt),
-      source: "provider_api",
-      freshnessSec: freshnessFromUpdatedAt(statusSummary.updatedAt, now),
-      confidence: "high",
-    });
   }
 
   usageLimits.sort((a, b) => {
@@ -1204,16 +1195,16 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
         return bRatio - aRatio;
       }
     }
-    return `${a.provider}:${a.model}`.localeCompare(`${b.provider}:${b.model}`);
+    return `${a.provider}:${a.model}:${a.windowLabel}`.localeCompare(`${b.provider}:${b.model}:${b.windowLabel}`);
   });
 
   const dailyCost = new Map<string, { tokens: number; cost: number }>();
-  for (const day of costSummary?.daily ?? []) {
-    dailyCost.set(day.date, { tokens: day.totalTokens, cost: day.totalCost });
-  }
   for (const day of usageResult?.aggregates.daily ?? []) {
+    dailyCost.set(day.date, { tokens: day.tokens, cost: day.cost });
+  }
+  for (const day of costSummary?.daily ?? []) {
     if (!dailyCost.has(day.date)) {
-      dailyCost.set(day.date, { tokens: day.tokens, cost: day.cost });
+      dailyCost.set(day.date, { tokens: day.totalTokens, cost: day.totalCost });
     }
   }
 
@@ -1241,6 +1232,10 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
   }
 
   const allTrendDates = new Set<string>([...dailyCost.keys(), ...dailySessions.keys()]);
+  for (const date of allDatesInRange(args.rangeStartDate, args.rangeEndDate)) {
+    allTrendDates.add(date);
+  }
+
   const trends = Array.from(allTrendDates)
     .toSorted()
     .map((date) => {
@@ -1265,7 +1260,7 @@ export function buildUsageAnalyticsViewModel(args: BuildUsageAnalyticsViewModelA
     providers.add(normalizeProvider(provider.provider));
   }
 
-  const totals = costSummary?.totals ?? usageResult?.totals ?? EMPTY_TOTALS;
+  const totals = usageResult?.totals ?? costSummary?.totals ?? EMPTY_TOTALS;
   const providerSummary = summarizeProvidersFromSessions(
     usageResult?.sessions ?? [],
     usageResult?.aggregates.byProvider ?? [],

@@ -51,6 +51,11 @@ import {
   updateExecApprovalsFormValue,
 } from "./controllers/exec-approvals.ts";
 import { loadLogs } from "./controllers/logs.ts";
+import {
+  cancelModelsOAuthWizard,
+  startModelsOAuthWizard,
+  submitModelsOAuthWizardStep,
+} from "./controllers/models-oauth.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import { deleteSessionAndRefresh, loadSessions, patchSession } from "./controllers/sessions.ts";
@@ -78,6 +83,7 @@ import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
+import { renderModels } from "./views/models.ts";
 import { buildUsageAnalyticsViewModel } from "./views/usage-analytics-adapter.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
@@ -585,6 +591,56 @@ export function renderApp(state: AppViewState) {
 
         ${renderUsageTabLazy(state)}
         ${renderModelsTabLazy(state)}
+
+        ${
+          state.tab === "models"
+            ? renderModels({
+                connected: state.connected,
+                loading: state.configLoading,
+                saving: state.configSaving,
+                applying: state.configApplying,
+                dirty: state.configFormDirty,
+                configForm: state.configForm,
+                configSnapshot: state.configSnapshot,
+                modelSuggestions: state.cronModelSuggestions,
+                oauthRunning: state.modelsOauthRunning,
+                oauthSessionId: state.modelsOauthSessionId,
+                oauthStep: state.modelsOauthStep,
+                oauthStepInput: state.modelsOauthStepInput,
+                oauthStepUrl: state.modelsOauthStepUrl,
+                oauthStatus: state.modelsOauthStatus,
+                oauthSelectedProviderId: state.modelsOauthSelectedProviderId,
+                oauthSelectedMethod: state.modelsOauthSelectedMethod,
+                onPatch: (path, value) => updateConfigFormValue(state, path, value),
+                onRemove: (path) => removeConfigFormValue(state, path),
+                onReload: () => loadConfig(state),
+                onRunOAuthWizard: (providerId, method) =>
+                  startModelsOAuthWizard(state, {
+                    providerId,
+                    method,
+                    onReload: () => loadConfig(state),
+                  }),
+                onChangeOAuthProviderId: (providerId) => {
+                  state.modelsOauthSelectedProviderId = providerId;
+                },
+                onChangeOAuthMethod: (method) => {
+                  state.modelsOauthSelectedMethod = method;
+                },
+                onChangeOAuthInput: (value) => {
+                  state.modelsOauthStepInput = value;
+                },
+                onSubmitOAuthStep: (value) =>
+                  submitModelsOAuthWizardStep(state, {
+                    value,
+                    onReload: () => loadConfig(state),
+                  }),
+                onCancelOAuthWizard: () => cancelModelsOAuthWizard(state),
+                onSave: () => saveConfig(state),
+                onApply: () => applyConfig(state),
+                onOpenConfig: () => state.setTab("config"),
+              })
+            : nothing
+        }
 
         ${
           state.tab === "cron"

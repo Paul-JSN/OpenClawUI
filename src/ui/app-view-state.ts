@@ -1,6 +1,7 @@
 import type { EventLogEntry } from "./app-events.ts";
 import type { CompactionStatus, FallbackStatus } from "./app-tool-stream.ts";
 import type { CronFieldErrors } from "./controllers/cron.ts";
+import type { ModelsOAuthUiStep } from "./controllers/models-oauth.ts";
 import type { DevicePairingList } from "./controllers/devices.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exec-approvals.ts";
@@ -122,6 +123,17 @@ export type AppViewState = {
   configSearchQuery: string;
   configActiveSection: string | null;
   configActiveSubsection: string | null;
+  modelsOauthRunning: boolean;
+  modelsOauthSessionId: string | null;
+  modelsOauthStep: ModelsOAuthUiStep | null;
+  modelsOauthStepInput: string;
+  modelsOauthStepUrl: string | null;
+  modelsOauthStatus: string | null;
+  modelsOauthProviderHint: string;
+  modelsOauthMethodHint: string;
+  modelsOauthStepCount: number;
+  modelsOauthSelectedProviderId: string;
+  modelsOauthSelectedMethod: string;
   channelsLoading: boolean;
   channelsSnapshot: ChannelsStatusSnapshot | null;
   channelsError: string | null;
@@ -186,6 +198,7 @@ export type AppViewState = {
   usageEndDate: string;
   usageRangePreset: "today" | "7d" | "30d" | "custom";
   usageSourceDimension: "models" | "providers" | "tools" | "agents" | "channels";
+  usageDetailPanel: "model-detail" | "limit-windows";
   usageSelectedSessions: string[];
   usageSelectedDays: string[];
   usageSelectedHours: number[];

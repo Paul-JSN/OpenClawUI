@@ -81,7 +81,8 @@ export function loadSettings(): UiSettings {
           : defaults.navGroupsCollapsed,
       locale: isSupportedLocale(parsed.locale) ? parsed.locale : undefined,
     };
-  } catch {
+  } catch (err) {
+    console.warn("[settings] Failed to parse stored settings, using defaults:", err);
     return defaults;
   }
 }

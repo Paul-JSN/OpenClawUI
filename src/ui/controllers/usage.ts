@@ -54,6 +54,22 @@ const LEGACY_USAGE_DATE_PARAMS_MODE_RE = /unexpected property ['"]mode['"]/i;
 const LEGACY_USAGE_DATE_PARAMS_OFFSET_RE = /unexpected property ['"]utcoffset['"]/i;
 const LEGACY_USAGE_DATE_PARAMS_INVALID_RE = /invalid sessions\.usage params/i;
 
+const USAGE_RESPONSE_CACHE_STORAGE_KEY = "openclaw.control.usage.response-cache.v1";
+const USAGE_RESPONSE_CACHE_MAX_ENTRIES = 40;
+const USAGE_RESPONSE_CACHE_TTL_MS = 30 * 60 * 1000;
+
+type UsageResponseCacheEntry = {
+  key: string;
+  updatedAt: number;
+  sessionsRes: SessionsUsageResult | null;
+  costRes: CostUsageSummary | null;
+  statusRes: UsageSummary | null;
+};
+
+type UsageResponseCacheStore = {
+  entries: UsageResponseCacheEntry[];
+};
+
 let legacyUsageDateParamsCache: Set<string> | null = null;
 
 type PendingUsageReload = {
@@ -62,6 +78,8 @@ type PendingUsageReload = {
 };
 
 const usageReloadQueue = new WeakMap<UsageState, PendingUsageReload | null>();
+const usageWarmCacheLastRunByGateway = new Map<string, number>();
+const USAGE_WARM_CACHE_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 function isIsoYmd(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -169,6 +187,102 @@ function normalizeGatewayCompatibilityKey(gatewayUrl?: string): string {
 
 function resolveGatewayCompatibilityKey(state: BaseUsageState): string {
   return normalizeGatewayCompatibilityKey(state.settings?.gatewayUrl);
+}
+
+function buildUsageResponseCacheKey(state: BaseUsageState, startDate: string, endDate: string): string {
+  return `${resolveGatewayCompatibilityKey(state)}::${startDate}::${endDate}`;
+}
+
+function parseUsageResponseCache(raw: string | null): UsageResponseCacheEntry[] {
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as UsageResponseCacheStore | null;
+    if (!parsed || !Array.isArray(parsed.entries)) {
+      return [];
+    }
+    const now = Date.now();
+    return parsed.entries.filter((entry): entry is UsageResponseCacheEntry => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+      if (typeof entry.key !== "string" || !entry.key.trim()) {
+        return false;
+      }
+      if (typeof entry.updatedAt !== "number" || !Number.isFinite(entry.updatedAt)) {
+        return false;
+      }
+      if (now - entry.updatedAt > USAGE_RESPONSE_CACHE_TTL_MS) {
+        return false;
+      }
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function loadUsageResponseCacheEntries(): UsageResponseCacheEntry[] {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return [];
+  }
+  return parseUsageResponseCache(storage.getItem(USAGE_RESPONSE_CACHE_STORAGE_KEY));
+}
+
+function persistUsageResponseCacheEntries(entries: UsageResponseCacheEntry[]) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.setItem(
+      USAGE_RESPONSE_CACHE_STORAGE_KEY,
+      JSON.stringify({ entries: entries.slice(0, USAGE_RESPONSE_CACHE_MAX_ENTRIES) }),
+    );
+  } catch {
+    // ignore quota/private-mode failures
+  }
+}
+
+function readUsageResponseCache(
+  state: BaseUsageState,
+  startDate: string,
+  endDate: string,
+): UsageResponseCacheEntry | null {
+  const key = buildUsageResponseCacheKey(state, startDate, endDate);
+  return loadUsageResponseCacheEntries().find((entry) => entry.key === key) ?? null;
+}
+
+function writeUsageResponseCache(
+  state: BaseUsageState,
+  startDate: string,
+  endDate: string,
+  data: { sessionsRes: SessionsUsageResult | null; costRes: CostUsageSummary | null; statusRes: UsageSummary | null },
+) {
+  const key = buildUsageResponseCacheKey(state, startDate, endDate);
+  const next: UsageResponseCacheEntry = {
+    key,
+    updatedAt: Date.now(),
+    sessionsRes: data.sessionsRes,
+    costRes: data.costRes,
+    statusRes: data.statusRes,
+  };
+
+  const existing = loadUsageResponseCacheEntries().filter((entry) => entry.key !== key);
+  persistUsageResponseCacheEntries([next, ...existing]);
+}
+
+function shouldWarmUsageCache(state: BaseUsageState): boolean {
+  const key = resolveGatewayCompatibilityKey(state);
+  const now = Date.now();
+  const lastRun = usageWarmCacheLastRunByGateway.get(key) ?? 0;
+  if (now - lastRun < USAGE_WARM_CACHE_MIN_INTERVAL_MS) {
+    return false;
+  }
+  usageWarmCacheLastRunByGateway.set(key, now);
+  return true;
 }
 
 function shouldSendLegacyDateInterpretation(state: BaseUsageState): boolean {
@@ -349,6 +463,20 @@ export async function loadUsage(
     state.usageEndDate = endDate;
   }
 
+  const cached = readUsageResponseCache(state, startDate, endDate);
+  if (cached) {
+    if (cached.sessionsRes) {
+      state.usageResult = cached.sessionsRes;
+    }
+    if (cached.costRes) {
+      state.usageCostSummary = cached.costRes;
+    }
+    if (cached.statusRes) {
+      state.usageStatus = cached.statusRes;
+    }
+    state.usageError = null;
+  }
+
   if (state.usageLoading) {
     usageReloadQueue.set(state, { startDate, endDate });
     return;
@@ -375,10 +503,15 @@ export async function loadUsage(
       if (statusRes) {
         state.usageStatus = statusRes;
       }
+      writeUsageResponseCache(state, startDate, endDate, {
+        sessionsRes,
+        costRes,
+        statusRes,
+      });
     }
   } catch (err) {
     const superseded = hasSupersedingPendingRange(state, startDate, endDate);
-    if (!superseded) {
+    if (!superseded && !cached) {
       state.usageError = toErrorMessage(err);
     }
   } finally {
@@ -387,6 +520,37 @@ export async function loadUsage(
     if (pending && (pending.startDate !== startDate || pending.endDate !== endDate)) {
       usageReloadQueue.set(state, null);
       void loadUsage(state, pending);
+    }
+  }
+}
+
+export async function warmUsageRangeCache(state: BaseUsageState) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  if (!shouldWarmUsageCache(state)) {
+    return;
+  }
+
+  const today = localCurrentDayUtcCoverageRange();
+  const ranges = [
+    { startDate: today.startDate, endDate: today.endDate },
+    lastNUtcDaysRange(7),
+    lastNUtcDaysRange(30),
+  ];
+
+  const seen = new Set<string>();
+  for (const range of ranges) {
+    const cacheKey = `${range.startDate}:${range.endDate}`;
+    if (seen.has(cacheKey)) {
+      continue;
+    }
+    seen.add(cacheKey);
+    try {
+      const data = await requestUsageData(state, range.startDate, range.endDate);
+      writeUsageResponseCache(state, range.startDate, range.endDate, data);
+    } catch {
+      // best-effort prewarm only
     }
   }
 }
