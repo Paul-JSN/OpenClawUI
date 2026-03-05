@@ -27,10 +27,14 @@ type ModelsProps = {
   oauthStepInput?: string;
   oauthStepUrl?: string | null;
   oauthStatus?: string | null;
+  oauthSelectedProviderId?: string;
+  oauthSelectedMethod?: string;
   onPatch: (path: Array<string | number>, value: unknown) => void;
   onRemove: (path: Array<string | number>) => void;
   onReload: () => void;
   onRunOAuthWizard?: (providerId: string, method?: string) => void | Promise<void>;
+  onChangeOAuthProviderId?: (providerId: string) => void;
+  onChangeOAuthMethod?: (method: string) => void;
   onChangeOAuthInput?: (value: string) => void;
   onSubmitOAuthStep?: (value?: string) => void | Promise<void>;
   onCancelOAuthWizard?: () => void | Promise<void>;
@@ -812,19 +816,6 @@ function buildModelsOAuthLoginCommand(providerId: string, method?: string): stri
   return command.join(" ");
 }
 
-function updateOAuthCommandPreviewFromForm(form: HTMLFormElement): void {
-  const preview = form.querySelector<HTMLElement>("[data-oauth-command-preview]");
-  if (!preview) {
-    return;
-  }
-  const data = new FormData(form);
-  const providerId = asString(data.get("providerId"));
-  const method = asString(data.get("method"));
-  preview.textContent = providerId
-    ? buildModelsOAuthLoginCommand(providerId, method)
-    : "openclaw models auth login --provider <selected-provider> [--method <id>]";
-}
-
 function renderModelsKpiIcon(kind: "providers" | "models" | "aliases" | "auth") {
   switch (kind) {
     case "providers":
@@ -1010,6 +1001,14 @@ export function renderModels(props: ModelsProps) {
     oauthProviderIds.find((providerId) => activeProviderIdSet.has(providerId)) ??
     oauthProviderIds[0] ??
     "";
+  const selectedOAuthProviderId =
+    (props.oauthSelectedProviderId && oauthProviderIds.includes(props.oauthSelectedProviderId)
+      ? props.oauthSelectedProviderId
+      : defaultOAuthProviderId) || "";
+  const selectedOAuthMethod = asString(props.oauthSelectedMethod ?? "");
+  const oauthCommandPreview = selectedOAuthProviderId
+    ? buildModelsOAuthLoginCommand(selectedOAuthProviderId, selectedOAuthMethod)
+    : "openclaw models auth login --provider <selected-provider> [--method <id>]";
   const oauthStepNeedsInput =
     props.oauthStep != null && (props.oauthStep.type === "text" || props.oauthStep.type === "action");
 
@@ -1114,21 +1113,19 @@ export function renderModels(props: ModelsProps) {
                   <select
                     name="providerId"
                     required
+                    .value=${selectedOAuthProviderId}
                     @change=${(event: Event) => {
                       const select = event.currentTarget;
-                      if (!(select instanceof HTMLSelectElement) || !select.form) {
+                      if (!(select instanceof HTMLSelectElement)) {
                         return;
                       }
-                      updateOAuthCommandPreviewFromForm(select.form);
+                      props.onChangeOAuthProviderId?.(asString(select.value));
                     }}
                   >
                     ${oauthProviderIds.map((providerId) => {
                       const hasAuth = (authByProvider.get(providerId) ?? 0) > 0;
                       return html`
-                        <option
-                          value=${providerId}
-                          ?selected=${providerId === defaultOAuthProviderId}
-                        >
+                        <option value=${providerId}>
                           ${providerId}${hasAuth ? " (connected)" : ""}
                         </option>
                       `;
@@ -1138,12 +1135,13 @@ export function renderModels(props: ModelsProps) {
                     name="method"
                     placeholder="method id (optional)"
                     title="Optional provider auth method id"
+                    .value=${selectedOAuthMethod}
                     @input=${(event: Event) => {
                       const input = event.currentTarget;
-                      if (!(input instanceof HTMLInputElement) || !input.form) {
+                      if (!(input instanceof HTMLInputElement)) {
                         return;
                       }
-                      updateOAuthCommandPreviewFromForm(input.form);
+                      props.onChangeOAuthMethod?.(input.value);
                     }}
                   />
                   <button class="btn" type="submit">Copy OAuth Login Command</button>
@@ -1179,11 +1177,7 @@ export function renderModels(props: ModelsProps) {
                 </form>
 
                 <div class="models-oauth-command-preview">
-                  <code data-oauth-command-preview>
-                    ${defaultOAuthProviderId
-                      ? buildModelsOAuthLoginCommand(defaultOAuthProviderId)
-                      : "openclaw models auth login --provider <selected-provider> [--method <id>]"}
-                  </code>
+                  <code>${oauthCommandPreview}</code>
                 </div>
                 <div class="models-inline-help" style="margin-top: 8px;">
                   Tip: Start OAuth in UI, open the link, complete provider login, paste redirected URL/code, then press Connect.

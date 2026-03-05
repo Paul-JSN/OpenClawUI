@@ -49,6 +49,8 @@ export type ModelsOAuthWizardState = {
   modelsOauthProviderHint: string;
   modelsOauthMethodHint: string;
   modelsOauthStepCount: number;
+  modelsOauthSelectedProviderId: string;
+  modelsOauthSelectedMethod: string;
   lastError: string | null;
 };
 
@@ -215,12 +217,25 @@ function extractActionUrl(step: ModelsOAuthUiStep): string {
 }
 
 function looksLikeManualCodePrompt(step: ModelsOAuthUiStep): boolean {
-  const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`;
+  const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`.replace(
+    /\s+/g,
+    " ",
+  );
   if (!text) {
     return false;
   }
-  return ["redirect", "paste", "code", "callback", "verification", "authorize", "token", "url"]
-    .some((needle) => text.includes(needle));
+
+  if (text.includes("paste the redirect")) {
+    return true;
+  }
+  if (text.includes("redirect url") || text.includes("authorization code") || text.includes("user code")) {
+    return true;
+  }
+  if (text.includes("paste") && (text.includes("redirect") || text.includes("code") || text.includes("callback"))) {
+    return true;
+  }
+
+  return false;
 }
 
 function defaultManualInput(step: ModelsOAuthUiStep, state: ModelsOAuthWizardState): string {
@@ -420,6 +435,8 @@ export async function startModelsOAuthWizard(
   const hints = extractProviderHints(params.providerId, params.method);
   state.modelsOauthProviderHint = hints.providerHint;
   state.modelsOauthMethodHint = hints.methodHint;
+  state.modelsOauthSelectedProviderId = asString(params.providerId);
+  state.modelsOauthSelectedMethod = asString(params.method ?? "");
   state.modelsOauthStatus = "OAuth wizard 시작 중...";
   state.modelsOauthRunning = true;
   state.lastError = null;
@@ -428,7 +445,7 @@ export async function startModelsOAuthWizard(
   const client = state.client;
 
   try {
-    const result = await client.request<WizardStartResult>("wizard.start", { mode: "local" });
+    const result = await client.request<WizardStartResult>("wizard.start", { mode: "remote" });
     const sessionId = asString(result.sessionId);
     if (!sessionId) {
       throw new Error("wizard.start returned empty session id");

@@ -4484,6 +4484,7 @@
 .models-wizard-form--oauth {
   align-items: flex-start;
   justify-content: flex-start;
+  width: 100%;
 }
 
 .models-wizard-form input,
@@ -4498,11 +4499,15 @@
   padding: 8px 10px;
   font-size: 11px;
   font-family: var(--mono);
+  text-align: left;
+  width: 100%;
 }
 
 .models-oauth-command-preview code {
+  display: block;
   white-space: pre-wrap;
   word-break: break-all;
+  text-align: left;
 }
 
 .models-oauth-status {

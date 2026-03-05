@@ -210,6 +210,8 @@ export class OpenClawApp extends LitElement {
   @state() modelsOauthProviderHint = "";
   @state() modelsOauthMethodHint = "";
   @state() modelsOauthStepCount = 0;
+  @state() modelsOauthSelectedProviderId = "";
+  @state() modelsOauthSelectedMethod = "";
 
   @state() channelsLoading = false;
   @state() channelsSnapshot: ChannelsStatusSnapshot | null = null;

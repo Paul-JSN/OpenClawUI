@@ -566,6 +566,8 @@ export function renderApp(state: AppViewState) {
                 oauthStepInput: state.modelsOauthStepInput,
                 oauthStepUrl: state.modelsOauthStepUrl,
                 oauthStatus: state.modelsOauthStatus,
+                oauthSelectedProviderId: state.modelsOauthSelectedProviderId,
+                oauthSelectedMethod: state.modelsOauthSelectedMethod,
                 onPatch: (path, value) => updateConfigFormValue(state, path, value),
                 onRemove: (path) => removeConfigFormValue(state, path),
                 onReload: () => loadConfig(state),
@@ -575,6 +577,12 @@ export function renderApp(state: AppViewState) {
                     method,
                     onReload: () => loadConfig(state),
                   }),
+                onChangeOAuthProviderId: (providerId) => {
+                  state.modelsOauthSelectedProviderId = providerId;
+                },
+                onChangeOAuthMethod: (method) => {
+                  state.modelsOauthSelectedMethod = method;
+                },
                 onChangeOAuthInput: (value) => {
                   state.modelsOauthStepInput = value;
                 },

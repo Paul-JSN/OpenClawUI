@@ -132,6 +132,8 @@ export type AppViewState = {
   modelsOauthProviderHint: string;
   modelsOauthMethodHint: string;
   modelsOauthStepCount: number;
+  modelsOauthSelectedProviderId: string;
+  modelsOauthSelectedMethod: string;
   channelsLoading: boolean;
   channelsSnapshot: ChannelsStatusSnapshot | null;
   channelsError: string | null;
