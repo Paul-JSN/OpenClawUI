@@ -1,6 +1,7 @@
 {
   "name": "openclaw-control-ui",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -12,7 +13,7 @@
     "@lit-labs/signals": "^0.2.0",
     "@lit/context": "^1.1.6",
     "@noble/ed25519": "3.0.0",
-    "dompurify": "^3.3.1",
+    "dompurify": "3.3.2",
     "echarts": "^5.5.1",
     "lit": "^3.3.2",
     "marked": "^17.0.3",
