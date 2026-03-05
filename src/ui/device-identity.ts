@@ -88,8 +88,8 @@ export async function loadOrCreateDeviceIdentity(): Promise<DeviceIdentity> {
         };
       }
     }
-  } catch {
-    // fall through to regenerate
+  } catch (err) {
+    console.warn("[device-identity] Failed to load stored identity, regenerating:", err);
   }
 
   const identity = await generateIdentity();
