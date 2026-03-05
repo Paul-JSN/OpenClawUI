@@ -2621,28 +2621,41 @@ select:not([multiple]) {
 }
 
 .agent-tabs {
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
   flex-wrap: wrap;
 }
 
 .agent-tab {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  padding: 6px 14px;
-  font-size: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
   font-weight: 600;
-  background: var(--secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 8px;
   cursor: pointer;
   transition:
+    color var(--duration-fast) ease,
     border-color var(--duration-fast) ease,
-    background var(--duration-fast) ease;
+    background-color var(--duration-fast) ease;
+}
+
+.agent-tab:hover {
+  color: var(--text);
 }
 
 .agent-tab.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+  color: var(--text-strong);
+  border-color: oklch(0.82 0.18 180 / 0.45);
+  background: oklch(0.2 0.018 270 / 0.78);
 }
 
 .agents-overview-grid {

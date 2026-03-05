@@ -142,7 +142,7 @@ export function iconForTab(tab: Tab): IconName {
     case "usage":
       return "barChart";
     case "models":
-      return "puzzle";
+      return "brain";
     case "cron":
       return "loader";
     case "skills":
