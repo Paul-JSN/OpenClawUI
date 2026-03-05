@@ -660,6 +660,50 @@ function setEasyModelOptions(
   updateEasyAliasPlaceholder(form, providerId, modelsByProvider);
 }
 
+function renderModelsKpiIcon(kind: "providers" | "models" | "aliases" | "auth") {
+  switch (kind) {
+    case "providers":
+      return html`
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+        </svg>
+      `;
+    case "models":
+      return html`
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="16"></rect>
+          <path d="M9 1v3"></path>
+          <path d="M15 1v3"></path>
+          <path d="M9 20v3"></path>
+          <path d="M15 20v3"></path>
+          <path d="M1 9h3"></path>
+          <path d="M1 15h3"></path>
+          <path d="M20 9h3"></path>
+          <path d="M20 15h3"></path>
+        </svg>
+      `;
+    case "aliases":
+      return html`
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 10 11 19 3 11V3h8z"></path>
+          <circle cx="7" cy="7" r="1.5"></circle>
+        </svg>
+      `;
+    case "auth":
+      return html`
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="11" width="16" height="10"></rect>
+          <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+        </svg>
+      `;
+    default:
+      return nothing;
+  }
+}
+
 export function renderModels(props: ModelsProps) {
   const config = (props.configForm ?? props.configSnapshot?.config ?? null) as
     | Record<string, unknown>
@@ -766,7 +810,7 @@ export function renderModels(props: ModelsProps) {
               <div class="kpi-card__sub">active ${activeProviderIds.length} · catalog ${catalogProviders.length}</div>
             </div>
             <div class="kpi-card__right">
-              <div class="kpi-card__icon-box"><span>🧩</span></div>
+              <div class="kpi-card__icon-box">${renderModelsKpiIcon("providers")}</div>
             </div>
           </div>
         </article>
@@ -778,7 +822,7 @@ export function renderModels(props: ModelsProps) {
               <div class="kpi-card__sub">catalog known ${catalogModels.length}</div>
             </div>
             <div class="kpi-card__right">
-              <div class="kpi-card__icon-box"><span>🧠</span></div>
+              <div class="kpi-card__icon-box">${renderModelsKpiIcon("models")}</div>
             </div>
           </div>
         </article>
@@ -790,7 +834,7 @@ export function renderModels(props: ModelsProps) {
               <div class="kpi-card__sub">invalid ${invalidAliasNames.length + invalidModelIdAliases.length}</div>
             </div>
             <div class="kpi-card__right">
-              <div class="kpi-card__icon-box"><span>🏷️</span></div>
+              <div class="kpi-card__icon-box">${renderModelsKpiIcon("aliases")}</div>
             </div>
           </div>
         </article>
@@ -802,7 +846,7 @@ export function renderModels(props: ModelsProps) {
               <div class="kpi-card__sub">providers with auth ${authByProvider.size}</div>
             </div>
             <div class="kpi-card__right">
-              <div class="kpi-card__icon-box"><span>🔐</span></div>
+              <div class="kpi-card__icon-box">${renderModelsKpiIcon("auth")}</div>
             </div>
           </div>
         </article>
@@ -1036,7 +1080,6 @@ export function renderModels(props: ModelsProps) {
               <div class="card-title">Advanced Setup Wizard</div>
               <div class="card-sub">Manual provider/model fields for custom endpoints and edge cases.</div>
             </div>
-            <span class="models-collapse__hint">Click to expand</span>
           </summary>
           <div class="models-collapse__body">
             <form
@@ -1432,7 +1475,6 @@ export function renderModels(props: ModelsProps) {
               <div class="card-title">Model Aliases</div>
               <div class="card-sub">Manage <code>agents.defaults.models</code> alias mapping.</div>
             </div>
-            <span class="models-collapse__hint">Click to expand</span>
           </summary>
           <div class="models-collapse__body">
             <form
@@ -1587,22 +1629,54 @@ export function renderModels(props: ModelsProps) {
         ${knownModelIds.map((id) => html`<option value=${id}></option>`) }
       </datalist>
 
-      <div class="row" style="margin-top: 16px; gap: 8px; flex-wrap: wrap;">
-        <button class="btn" ?disabled=${props.loading} @click=${props.onReload}>
-          ${props.loading ? "Refreshing…" : "Reload"}
+      <div class="row models-actions-row" style="margin-top: 16px; gap: 8px; flex-wrap: wrap;">
+        <button
+          class="btn"
+          title="Discard local edits and reload config from gateway"
+          ?disabled=${props.loading}
+          @click=${props.onReload}
+        >
+          ${props.loading ? "Refreshing…" : "Reload Config"}
         </button>
-        <button class="btn" ?disabled=${props.saving || !props.connected} @click=${props.onSave}>
+        <button
+          class="btn"
+          title="Save current edits to config file"
+          ?disabled=${props.saving || !props.connected}
+          @click=${props.onSave}
+        >
           ${props.saving ? "Saving…" : "Save"}
         </button>
-        <button class="btn primary" ?disabled=${props.applying || !props.connected} @click=${props.onApply}>
-          ${props.applying ? "Applying…" : "Apply"}
+        <button
+          class="btn primary"
+          title="Apply saved config to runtime"
+          ?disabled=${props.applying || !props.connected}
+          @click=${props.onApply}
+        >
+          ${props.applying ? "Applying…" : "Apply Runtime"}
         </button>
-        <button class="btn" @click=${props.onOpenConfig}>Open Full Config</button>
-        ${
-          props.dirty
-            ? html`<span class="pill warn">Unsaved changes</span>`
-            : html`<span class="pill ok">Saved</span>`
-        }
+        <button class="btn" title="Open full JSON editor" @click=${props.onOpenConfig}>Open JSON Editor</button>
+        <button
+          class="btn"
+          title="Copy all known provider/model ids"
+          ?disabled=${knownModelIds.length === 0}
+          @click=${() => {
+            const payload = knownModelIds.join("\n");
+            if (!payload) {
+              return;
+            }
+            if (!navigator.clipboard?.writeText) {
+              alert("Clipboard access is unavailable in this browser context.");
+              return;
+            }
+            void navigator.clipboard.writeText(payload).catch(() => {
+              alert("Clipboard access failed. Open JSON editor and copy manually.");
+            });
+          }}
+        >
+          Copy Model IDs
+        </button>
+        ${props.connected ? html`<span class="pill ok">Connected</span>` : html`<span class="pill warn">Disconnected</span>`}
+        ${props.dirty ? html`<span class="pill warn">Unsaved changes</span>` : html`<span class="pill ok">Saved</span>`}
       </div>
 
       ${
