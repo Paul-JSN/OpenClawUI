@@ -23,6 +23,8 @@ export function renderUsageTab(state: AppViewState) {
     usageResult: state.usageResult,
     usageCostSummary: state.usageCostSummary,
     usageStatus: state.usageStatus,
+    rangeStartDate: state.usageStartDate,
+    rangeEndDate: state.usageEndDate,
     rangeKey: `${state.usageRangePreset}|${state.usageStartDate}|${state.usageEndDate}|${state.usageDisplayTimeZone}`,
   });
 
@@ -35,6 +37,7 @@ export function renderUsageTab(state: AppViewState) {
     endDate: state.usageEndDate,
     rangePreset: state.usageRangePreset,
     sourceDimension: state.usageSourceDimension,
+    detailPanel: state.usageDetailPanel,
     sessions: state.usageResult?.sessions ?? [],
     sessionsLimitReached: (state.usageResult?.sessions?.length ?? 0) >= 1000,
     totals: state.usageResult?.totals ?? null,
@@ -104,6 +107,9 @@ export function renderUsageTab(state: AppViewState) {
     },
     onSourceDimensionChange: (dimension) => {
       state.usageSourceDimension = dimension;
+    },
+    onDetailPanelChange: (panel) => {
+      state.usageDetailPanel = panel;
     },
     onDisplayTimeZoneChange: (zone) => {
       state.usageDisplayTimeZone = zone;

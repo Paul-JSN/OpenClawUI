@@ -27,7 +27,7 @@ import {
 } from "./controllers/exec-approval.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadSessions } from "./controllers/sessions.ts";
-import { loadUsage } from "./controllers/usage.ts";
+import { loadOverviewUsage, loadUsage, warmUsageRangeCache } from "./controllers/usage.ts";
 import {
   resolveGatewayErrorDetailCode,
   type GatewayEventFrame,
@@ -179,6 +179,10 @@ export function connectGateway(host: GatewayHost) {
           // best-effort warm preload
         });
       }
+      void loadOverviewUsage(host as unknown as OpenClawApp).catch(() => {
+        // best-effort overview preload
+      });
+      void warmUsageRangeCache(host as unknown as OpenClawApp);
     },
     onClose: ({ code, reason, error }) => {
       if (host.client !== client) {

@@ -17,6 +17,7 @@ export class OpenClawEchartHost extends LitElement {
   private transitionResizeTimeout: number | null = null;
   private optionApplyTimer: number | null = null;
   private pendingOption: EChartsOption | null = null;
+  private lastOptionSignature: string | null = null;
   private readonly onLayoutTransition = () => {
     this.runTransitionResize(520);
   };
@@ -61,6 +62,7 @@ export class OpenClawEchartHost extends LitElement {
       this.chart.dispose();
       this.chart = null;
     }
+    this.lastOptionSignature = null;
     super.disconnectedCallback();
   }
 
@@ -70,7 +72,9 @@ export class OpenClawEchartHost extends LitElement {
     }
     this.chart = echarts.init(this.canvasEl, undefined, {
       renderer: "canvas",
-      useDirtyRect: true,
+      // Dirty-rect can leave transient ghost lines on large range downshifts (e.g. 30d -> 1d).
+      // Full repaint is safer for dashboard charts and removes hover-only cleanup artifacts.
+      useDirtyRect: false,
     });
   }
 
@@ -85,26 +89,51 @@ export class OpenClawEchartHost extends LitElement {
     }, 70);
   }
 
+  private buildOptionSignature(option: EChartsOption): string {
+    try {
+      return JSON.stringify(option, (_, value) =>
+        typeof value === "function" ? "__fn__" : value,
+      );
+    } catch {
+      // Fallback when stringify fails (rare circular refs): force apply.
+      return `${Date.now()}-${Math.random()}`;
+    }
+  }
+
   private applyOptionNow(option: EChartsOption | null) {
     this.ensureChart();
     if (!this.chart || !option) {
       return;
     }
 
-    const normalizedOption = {
-      ...option,
-      animation: false,
-      animationDuration: 0,
-      animationDurationUpdate: 0,
-      animationEasing: "linear",
-      animationEasingUpdate: "linear",
-    } as EChartsOption;
+    const optionSignature = this.buildOptionSignature(option);
+    if (optionSignature === this.lastOptionSignature) {
+      return;
+    }
+
+    const normalizedOption = { ...option } as EChartsOption;
+    if (normalizedOption.animation === undefined) {
+      normalizedOption.animation = true;
+    }
+    if (normalizedOption.animationDuration === undefined) {
+      normalizedOption.animationDuration = 260;
+    }
+    if (normalizedOption.animationDurationUpdate === undefined) {
+      normalizedOption.animationDurationUpdate = 360;
+    }
+    if (normalizedOption.animationEasing === undefined) {
+      normalizedOption.animationEasing = "quarticOut";
+    }
+    if (normalizedOption.animationEasingUpdate === undefined) {
+      normalizedOption.animationEasingUpdate = "cubicOut";
+    }
 
     this.chart.setOption(normalizedOption, {
-      notMerge: true,
+      notMerge: false,
       lazyUpdate: true,
       silent: true,
     });
+    this.lastOptionSignature = optionSignature;
   }
 
   private attachResizeObserver() {
