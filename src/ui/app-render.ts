@@ -51,6 +51,7 @@ import {
   updateExecApprovalsFormValue,
 } from "./controllers/exec-approvals.ts";
 import { loadLogs } from "./controllers/logs.ts";
+import { runModelsOAuthWizard } from "./controllers/models-oauth.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import { deleteSessionAndRefresh, loadSessions, patchSession } from "./controllers/sessions.ts";
@@ -555,9 +556,16 @@ export function renderApp(state: AppViewState) {
                 configForm: state.configForm,
                 configSnapshot: state.configSnapshot,
                 modelSuggestions: state.cronModelSuggestions,
+                oauthRunning: state.modelsOauthRunning,
                 onPatch: (path, value) => updateConfigFormValue(state, path, value),
                 onRemove: (path) => removeConfigFormValue(state, path),
                 onReload: () => loadConfig(state),
+                onRunOAuthWizard: (providerId, method) =>
+                  runModelsOAuthWizard(state, {
+                    providerId,
+                    method,
+                    onReload: () => loadConfig(state),
+                  }),
                 onSave: () => saveConfig(state),
                 onApply: () => applyConfig(state),
                 onOpenConfig: () => state.setTab("config"),

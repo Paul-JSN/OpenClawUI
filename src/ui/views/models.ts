@@ -15,9 +15,11 @@ type ModelsProps = {
   configForm: Record<string, unknown> | null;
   configSnapshot: ConfigSnapshot | null;
   modelSuggestions: string[];
+  oauthRunning?: boolean;
   onPatch: (path: Array<string | number>, value: unknown) => void;
   onRemove: (path: Array<string | number>) => void;
   onReload: () => void;
+  onRunOAuthWizard?: (providerId: string, method?: string) => void | Promise<void>;
   onSave: () => void;
   onApply: () => void;
   onOpenConfig: () => void;
@@ -1100,6 +1102,34 @@ export function renderModels(props: ModelsProps) {
                     title="Optional provider auth method id"
                   />
                   <button class="btn" type="submit">Copy OAuth Login Command</button>
+                  <button
+                    class="btn"
+                    type="button"
+                    ?disabled=${props.oauthRunning || !props.onRunOAuthWizard}
+                    @click=${async (event: Event) => {
+                      if (!props.onRunOAuthWizard) {
+                        return;
+                      }
+                      const button = event.currentTarget;
+                      if (!(button instanceof HTMLButtonElement)) {
+                        return;
+                      }
+                      const form = button.form;
+                      if (!form) {
+                        return;
+                      }
+                      const data = new FormData(form);
+                      const providerId = asString(data.get("providerId"));
+                      const method = asString(data.get("method"));
+                      if (!providerId) {
+                        alert("Select an OAuth provider first.");
+                        return;
+                      }
+                      await props.onRunOAuthWizard(providerId, method);
+                    }}
+                  >
+                    ${props.oauthRunning ? "Running Wizard…" : "Run OAuth Wizard in UI"}
+                  </button>
                   <button class="btn" type="button" @click=${props.onReload}>Reload Auth Profiles</button>
                 </form>
 
@@ -1111,7 +1141,7 @@ export function renderModels(props: ModelsProps) {
                   </code>
                 </div>
                 <div class="models-inline-help" style="margin-top: 8px;">
-                  Tip: this command requires an interactive terminal. After login succeeds, this page will allow OAuth auth mode without validation warnings.
+                  Tip: use "Run OAuth Wizard in UI" for guided onboarding prompts, or use the copied command if you prefer terminal flow.
                 </div>
               </section>
             `

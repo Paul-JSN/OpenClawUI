@@ -200,6 +200,8 @@ export class OpenClawApp extends LitElement {
   @state() configActiveSection: string | null = null;
   @state() configActiveSubsection: string | null = null;
 
+  @state() modelsOauthRunning = false;
+
   @state() channelsLoading = false;
   @state() channelsSnapshot: ChannelsStatusSnapshot | null = null;
   @state() channelsError: string | null = null;
