@@ -91,18 +91,14 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
-function formatTokenSlashBreakdown(parts: {
-  input: number;
-  output: number;
+function formatTokenReadWriteSplit(parts: {
+  total: number;
   cacheRead: number;
   cacheWrite: number;
 }): string {
-  return [
-    `in ${formatTokens(parts.input)}`,
-    `out ${formatTokens(parts.output)}`,
-    `cr ${formatTokens(parts.cacheRead)}`,
-    `cw ${formatTokens(parts.cacheWrite)}`,
-  ].join(" / ");
+  const included = Math.max(0, parts.total);
+  const excluded = Math.max(0, included - Math.max(0, parts.cacheRead) - Math.max(0, parts.cacheWrite));
+  return `read/write included ${formatTokens(included)} / excluded ${formatTokens(excluded)}`;
 }
 
 function formatResetTime(
@@ -302,9 +298,8 @@ export function renderUsage(props: UsageProps) {
   const providerApiLimitRows = usageLimits.filter((entry) => entry.source === "provider_api").length;
   const totalTokens = Math.max(0, props.totals?.totalTokens ?? model.snapshot.totalTokens);
   const totalCost = props.totals?.totalCost ?? model.snapshot.totalCost;
-  const totalTokenBreakdown = {
-    input: Math.max(0, props.totals?.input ?? model.snapshot.breakdown.inputTokens),
-    output: Math.max(0, props.totals?.output ?? model.snapshot.breakdown.outputTokens),
+  const totalTokenReadWriteSplit = {
+    total: totalTokens,
     cacheRead: Math.max(0, props.totals?.cacheRead ?? model.snapshot.breakdown.cacheReadTokens),
     cacheWrite: Math.max(0, props.totals?.cacheWrite ?? model.snapshot.breakdown.cacheWriteTokens),
   };
@@ -443,7 +438,7 @@ export function renderUsage(props: UsageProps) {
             <div>
               <label>Total Tokens Used</label>
               <strong>${formatTokens(totalTokens)}</strong>
-              <div class="muted" style="font-size: 11px;">${formatTokenSlashBreakdown(totalTokenBreakdown)}</div>
+              <div class="muted" style="font-size: 11px;">${formatTokenReadWriteSplit(totalTokenReadWriteSplit)}</div>
             </div>
             <div class="react-kpi-side">
               <span class="react-kpi-icon">${renderKpiIcon("tokens")}</span>

@@ -51,18 +51,14 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
-function formatTokenSlashBreakdown(parts: {
-  input: number;
-  output: number;
+function formatTokenReadWriteSplit(parts: {
+  total: number;
   cacheRead: number;
   cacheWrite: number;
 }): string {
-  return [
-    `in ${formatTokens(parts.input)}`,
-    `out ${formatTokens(parts.output)}`,
-    `cr ${formatTokens(parts.cacheRead)}`,
-    `cw ${formatTokens(parts.cacheWrite)}`,
-  ].join(" / ");
+  const included = Math.max(0, parts.total);
+  const excluded = Math.max(0, included - Math.max(0, parts.cacheRead) - Math.max(0, parts.cacheWrite));
+  return `read/write included ${formatTokens(included)} / excluded ${formatTokens(excluded)}`;
 }
 
 function trendPercent(values: number[]): number | null {
@@ -163,9 +159,8 @@ export function renderOverview(props: OverviewProps) {
   const sessionsDelta = trendPercent(model.trends.map((point) => point.sessions));
 
   const breakdown = snapshot24h?.breakdown ?? model.snapshot.breakdown;
-  const tokenBreakdownLabel = formatTokenSlashBreakdown({
-    input: Math.max(0, breakdown.inputTokens),
-    output: Math.max(0, breakdown.outputTokens),
+  const tokenBreakdownLabel = formatTokenReadWriteSplit({
+    total: Math.max(0, tokens24h),
     cacheRead: Math.max(0, breakdown.cacheReadTokens),
     cacheWrite: Math.max(0, breakdown.cacheWriteTokens),
   });
