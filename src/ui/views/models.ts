@@ -1888,13 +1888,19 @@ export function renderModels(props: ModelsProps) {
             const template = resolveProviderTemplate(providerId, provider);
             const catalogCount = catalogModelsByProvider.get(providerId)?.length ?? 0;
             const isActive = activeProviderIdSet.has(providerId);
+            const isReferencedOnly = !provider && aliasModelIds.length > 0;
+            const providerStatusLabel = provider
+              ? "configured"
+              : isReferencedOnly
+                ? "referenced (no local override)"
+                : "not configured";
             return html`
               <details class="models-provider-accordion">
                 <summary class="models-provider-accordion__summary">
                   <div>
                     <strong>${providerId}</strong>
                     <div class="muted" style="font-size: 11px; margin-top: 2px;">
-                      ${provider ? "configured" : "not configured"} · models ${effectiveModelCount} · catalog ${catalogCount}
+                      ${providerStatusLabel} · models ${effectiveModelCount} · catalog ${catalogCount}
                     </div>
                   </div>
                   <div class="models-provider-accordion__summary-badges">
@@ -1909,6 +1915,7 @@ export function renderModels(props: ModelsProps) {
                     base ${provider?.baseUrl || template.baseUrl || "--"}
                     · api ${provider?.api || template.api}
                     · auth ${provider?.auth || template.auth}
+                    · source ${provider ? "config" : "template"}
                   </div>
 
                   ${
@@ -2027,9 +2034,17 @@ export function renderModels(props: ModelsProps) {
                         `
                       : html`
                           <div class="callout" style="margin-top: 4px;">
-                            <div>This provider is not configured yet.</div>
+                            <div>
+                              ${isReferencedOnly
+                                ? "No local provider override in config (using template defaults)."
+                                : "This provider is not configured yet."}
+                            </div>
                             ${aliasModelIds.length > 0
-                              ? html`<div class="muted" style="margin-top: 6px;">Model refs: ${aliasModelIds.join(", ")}</div>`
+                              ? html`
+                                  <div class="muted" style="margin-top: 6px;">
+                                    Model refs: ${aliasModelIds.join(", ")}
+                                  </div>
+                                `
                               : nothing}
                             ${
                               template.baseUrl
@@ -2061,7 +2076,7 @@ export function renderModels(props: ModelsProps) {
                                         );
                                       }}
                                     >
-                                      Create from template
+                                      Create local override from template
                                     </button>
                                   `
                                 : nothing
