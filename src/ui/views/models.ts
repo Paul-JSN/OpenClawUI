@@ -1894,6 +1894,17 @@ export function renderModels(props: ModelsProps) {
               : isReferencedOnly
                 ? "referenced (no local override)"
                 : "not configured";
+            const catalogRows = catalogModelsByProvider.get(providerId) ?? [];
+            const catalogById = new Map(catalogRows.map((row) => [row.id, row]));
+            const referencedModelRows = aliasModelIds.map((modelId) => {
+              const catalog = catalogById.get(modelId);
+              return {
+                id: modelId,
+                name: catalog?.name ?? modelId,
+                contextWindow: catalog?.contextWindow ?? null,
+                maxTokens: catalog?.maxTokens ?? null,
+              };
+            });
             return html`
               <details class="models-provider-accordion">
                 <summary class="models-provider-accordion__summary">
@@ -1925,7 +1936,7 @@ export function renderModels(props: ModelsProps) {
                             <button
                               class="btn danger"
                               @click=${() => {
-                                if (!confirm(`Delete provider ${provider.id}?`)) {
+                                if (!confirm(`Delete provider ${provider.id} config block?`)) {
                                   return;
                                 }
                                 props.onRemove(["models", "providers", provider.id]);
@@ -1933,6 +1944,31 @@ export function renderModels(props: ModelsProps) {
                             >
                               Remove Provider
                             </button>
+                            ${
+                              aliasModelIds.length > 0
+                                ? html`
+                                    <button
+                                      class="btn danger"
+                                      @click=${() => {
+                                        if (!confirm(`Delete provider ${provider.id} and ${aliasModelIds.length} model refs?`)) {
+                                          return;
+                                        }
+                                        props.onRemove(["models", "providers", provider.id]);
+                                        for (const modelId of aliasModelIds) {
+                                          props.onRemove([
+                                            "agents",
+                                            "defaults",
+                                            "models",
+                                            `${provider.id}/${modelId}`,
+                                          ]);
+                                        }
+                                      }}
+                                    >
+                                      Remove Provider + Refs
+                                    </button>
+                                  `
+                                : nothing
+                            }
                           </div>
 
                           <form
@@ -2039,45 +2075,110 @@ export function renderModels(props: ModelsProps) {
                                 ? "No local provider override in config (using template defaults)."
                                 : "This provider is not configured yet."}
                             </div>
-                            ${aliasModelIds.length > 0
-                              ? html`
-                                  <div class="muted" style="margin-top: 6px;">
-                                    Model refs: ${aliasModelIds.join(", ")}
-                                  </div>
-                                `
-                              : nothing}
+
+                            <div class="models-action-list" style="margin-top: 8px;">
+                              ${
+                                template.baseUrl
+                                  ? html`
+                                      <button
+                                        class="btn"
+                                        @click=${() => {
+                                          const authValidationError = resolveProviderAuthValidationError({
+                                            providerId,
+                                            authMode: template.auth,
+                                            provider: undefined,
+                                            apiKeyInput: "",
+                                            authByProvider,
+                                          });
+                                          if (authValidationError) {
+                                            alert(authValidationError);
+                                            return;
+                                          }
+                                          props.onPatch(
+                                            ["models", "providers", providerId],
+                                            createProviderObject({
+                                              current: null,
+                                              baseUrl: template.baseUrl,
+                                              api: template.api,
+                                              auth: template.auth,
+                                              apiKey: "",
+                                            }),
+                                          );
+                                        }}
+                                      >
+                                        Create local override from template
+                                      </button>
+                                    `
+                                  : nothing
+                              }
+
+                              ${
+                                aliasModelIds.length > 0
+                                  ? html`
+                                      <button
+                                        class="btn danger"
+                                        @click=${() => {
+                                          if (!confirm(`Delete ${aliasModelIds.length} model refs under ${providerId}?`)) {
+                                            return;
+                                          }
+                                          for (const modelId of aliasModelIds) {
+                                            props.onRemove([
+                                              "agents",
+                                              "defaults",
+                                              "models",
+                                              `${providerId}/${modelId}`,
+                                            ]);
+                                          }
+                                        }}
+                                      >
+                                        Remove Provider Refs
+                                      </button>
+                                    `
+                                  : nothing
+                              }
+                            </div>
+
                             ${
-                              template.baseUrl
+                              referencedModelRows.length > 0
                                 ? html`
-                                    <button
-                                      class="btn"
-                                      style="margin-top: 8px;"
-                                      @click=${() => {
-                                        const authValidationError = resolveProviderAuthValidationError({
-                                          providerId,
-                                          authMode: template.auth,
-                                          provider: undefined,
-                                          apiKeyInput: "",
-                                          authByProvider,
-                                        });
-                                        if (authValidationError) {
-                                          alert(authValidationError);
-                                          return;
-                                        }
-                                        props.onPatch(
-                                          ["models", "providers", providerId],
-                                          createProviderObject({
-                                            current: null,
-                                            baseUrl: template.baseUrl,
-                                            api: template.api,
-                                            auth: template.auth,
-                                            apiKey: "",
-                                          }),
-                                        );
-                                      }}
-                                    >
-                                      Create local override from template
-                                    </button>
+                                    <table class="react-provider-table usage-detail-table" style="margin-top: 10px;">
+                                      <thead>
+                                        <tr>
+                                          <th>Model</th>
+                                          <th>Name</th>
+                                          <th>Context</th>
+                                          <th>Max Tokens</th>
+                                          <th></th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        ${referencedModelRows.map(
+                                          (model) => html`
+                                            <tr>
+                                              <td><span class="react-model-label">${model.id}</span></td>
+                                              <td>${model.name}</td>
+                                              <td>${model.contextWindow?.toLocaleString() ?? "--"}</td>
+                                              <td>${model.maxTokens?.toLocaleString() ?? "--"}</td>
+                                              <td>
+                                                <button
+                                                  class="btn danger"
+                                                  @click=${() => {
+                                                    props.onRemove([
+                                                      "agents",
+                                                      "defaults",
+                                                      "models",
+                                                      `${providerId}/${model.id}`,
+                                                    ]);
+                                                  }}
+                                                >
+                                                  Remove Ref
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          `,
+                                        )}
+                                      </tbody>
+                                    </table>
                                   `
                                 : nothing
                             }
