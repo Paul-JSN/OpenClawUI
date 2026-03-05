@@ -216,6 +216,54 @@ function extractActionUrl(step: ModelsOAuthUiStep): string {
   return [...urls].toSorted((a, b) => score(b) - score(a))[0] ?? urls[0] ?? "";
 }
 
+function isLikelyAuthApprovalLinkStep(step: ModelsOAuthUiStep, url: string): boolean {
+  const lowerUrl = asString(url).toLowerCase();
+  if (!lowerUrl) {
+    return false;
+  }
+
+  if (lowerUrl.includes("docs.openclaw.ai")) {
+    return false;
+  }
+
+  if (
+    lowerUrl.includes("accounts.google.com") ||
+    lowerUrl.includes("chat.qwen.ai/authorize") ||
+    lowerUrl.includes("oauth") ||
+    lowerUrl.includes("authorize") ||
+    lowerUrl.includes("device/code")
+  ) {
+    return true;
+  }
+
+  const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`;
+  if (!text) {
+    return false;
+  }
+
+  const explicitNonAuthHints = [
+    "base url defaults",
+    "override models.providers",
+    "current plan",
+    "valid until",
+    "resource url",
+  ];
+  if (explicitNonAuthHints.some((hint) => text.includes(hint))) {
+    return false;
+  }
+
+  const authHints = [
+    "approve access",
+    "if prompted, enter the code",
+    "user code",
+    "verification",
+    "device code",
+    "oauth",
+    "authorization",
+  ];
+  return authHints.some((hint) => text.includes(hint));
+}
+
 function looksLikeManualCodePrompt(step: ModelsOAuthUiStep): boolean {
   const text = `${toLower(step.title)} ${toLower(step.message)} ${toLower(step.placeholder)}`.replace(
     /\s+/g,
@@ -382,13 +430,15 @@ async function processWizardUntilPause(
     }
 
     const embeddedUrl = extractActionUrl(step);
-    if (embeddedUrl && state.modelsOauthStepUrl !== embeddedUrl) {
+    const isAuthApprovalLink = Boolean(embeddedUrl) && isLikelyAuthApprovalLinkStep(step, embeddedUrl);
+
+    if (isAuthApprovalLink && embeddedUrl && state.modelsOauthStepUrl !== embeddedUrl) {
       state.modelsOauthStepUrl = embeddedUrl;
       window.open(embeddedUrl, "_blank", "noopener,noreferrer");
     }
 
-    const shouldPauseForOAuthLink = Boolean(embeddedUrl) && step.type === "note";
-    if (shouldPauseForOAuthLink) {
+    const shouldPauseForOAuthLink = Boolean(isAuthApprovalLink) && step.type === "note";
+    if (shouldPauseForOAuthLink && embeddedUrl) {
       state.modelsOauthStep = step;
       state.modelsOauthStepInput = "";
       state.modelsOauthStepUrl = embeddedUrl;
@@ -411,7 +461,7 @@ async function processWizardUntilPause(
 
     state.modelsOauthStep = step;
     state.modelsOauthStepInput = defaultManualInput(step, state);
-    state.modelsOauthStepUrl = embeddedUrl || state.modelsOauthStepUrl || null;
+    state.modelsOauthStepUrl = isAuthApprovalLink ? embeddedUrl : state.modelsOauthStepUrl || null;
     state.modelsOauthStatus = buildStepMessage(step);
     state.modelsOauthRunning = false;
     return;
