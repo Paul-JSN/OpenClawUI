@@ -812,6 +812,19 @@ function buildModelsOAuthLoginCommand(providerId: string, method?: string): stri
   return command.join(" ");
 }
 
+function updateOAuthCommandPreviewFromForm(form: HTMLFormElement): void {
+  const preview = form.querySelector<HTMLElement>("[data-oauth-command-preview]");
+  if (!preview) {
+    return;
+  }
+  const data = new FormData(form);
+  const providerId = asString(data.get("providerId"));
+  const method = asString(data.get("method"));
+  preview.textContent = providerId
+    ? buildModelsOAuthLoginCommand(providerId, method)
+    : "openclaw models auth login --provider <selected-provider> [--method <id>]";
+}
+
 function renderModelsKpiIcon(kind: "providers" | "models" | "aliases" | "auth") {
   switch (kind) {
     case "providers":
@@ -997,6 +1010,8 @@ export function renderModels(props: ModelsProps) {
     oauthProviderIds.find((providerId) => activeProviderIdSet.has(providerId)) ??
     oauthProviderIds[0] ??
     "";
+  const oauthStepNeedsInput =
+    props.oauthStep != null && (props.oauthStep.type === "text" || props.oauthStep.type === "action");
 
   return html`
     <section class="models-page">
@@ -1096,7 +1111,17 @@ export function renderModels(props: ModelsProps) {
                     });
                   }}
                 >
-                  <select name="providerId" required>
+                  <select
+                    name="providerId"
+                    required
+                    @change=${(event: Event) => {
+                      const select = event.currentTarget;
+                      if (!(select instanceof HTMLSelectElement) || !select.form) {
+                        return;
+                      }
+                      updateOAuthCommandPreviewFromForm(select.form);
+                    }}
+                  >
                     ${oauthProviderIds.map((providerId) => {
                       const hasAuth = (authByProvider.get(providerId) ?? 0) > 0;
                       return html`
@@ -1113,6 +1138,13 @@ export function renderModels(props: ModelsProps) {
                     name="method"
                     placeholder="method id (optional)"
                     title="Optional provider auth method id"
+                    @input=${(event: Event) => {
+                      const input = event.currentTarget;
+                      if (!(input instanceof HTMLInputElement) || !input.form) {
+                        return;
+                      }
+                      updateOAuthCommandPreviewFromForm(input.form);
+                    }}
                   />
                   <button class="btn" type="submit">Copy OAuth Login Command</button>
                   <button
@@ -1147,7 +1179,11 @@ export function renderModels(props: ModelsProps) {
                 </form>
 
                 <div class="models-oauth-command-preview">
-                  <code>openclaw models auth login --provider &lt;selected-provider&gt; [--method &lt;id&gt;]</code>
+                  <code data-oauth-command-preview>
+                    ${defaultOAuthProviderId
+                      ? buildModelsOAuthLoginCommand(defaultOAuthProviderId)
+                      : "openclaw models auth login --provider <selected-provider> [--method <id>]"}
+                  </code>
                 </div>
                 <div class="models-inline-help" style="margin-top: 8px;">
                   Tip: Start OAuth in UI, open the link, complete provider login, paste redirected URL/code, then press Connect.
@@ -1191,28 +1227,39 @@ export function renderModels(props: ModelsProps) {
                               : nothing
                           }
                           <div class="models-wizard-form models-wizard-form--oauth-step">
-                            <input
-                              name="oauthStepInput"
-                              placeholder=${asString(props.oauthStep.placeholder) || "Paste redirected URL / code"}
-                              .value=${props.oauthStepInput ?? ""}
-                              @input=${(event: Event) => {
-                                if (!props.onChangeOAuthInput) {
-                                  return;
-                                }
-                                const input = event.currentTarget;
-                                if (!(input instanceof HTMLInputElement)) {
-                                  return;
-                                }
-                                props.onChangeOAuthInput(input.value);
-                              }}
-                            />
+                            ${
+                              oauthStepNeedsInput
+                                ? html`
+                                    <input
+                                      name="oauthStepInput"
+                                      placeholder=${asString(props.oauthStep.placeholder) || "Paste redirected URL / code"}
+                                      .value=${props.oauthStepInput ?? ""}
+                                      @input=${(event: Event) => {
+                                        if (!props.onChangeOAuthInput) {
+                                          return;
+                                        }
+                                        const input = event.currentTarget;
+                                        if (!(input instanceof HTMLInputElement)) {
+                                          return;
+                                        }
+                                        props.onChangeOAuthInput(input.value);
+                                      }}
+                                    />
+                                  `
+                                : nothing
+                            }
                             <button
                               class="btn"
                               type="button"
                               ?disabled=${props.oauthRunning || !props.onSubmitOAuthStep}
-                              @click=${() => props.onSubmitOAuthStep?.(props.oauthStepInput ?? "")}
+                              @click=${() =>
+                                props.onSubmitOAuthStep?.(oauthStepNeedsInput ? props.oauthStepInput ?? "" : undefined)}
                             >
-                              ${props.oauthRunning ? "Connecting…" : "Connect"}
+                              ${props.oauthRunning
+                                ? "Connecting…"
+                                : oauthStepNeedsInput
+                                  ? "Connect"
+                                  : "Continue"}
                             </button>
                             <button
                               class="btn"

@@ -178,24 +178,35 @@ function extractActionUrl(step: ModelsOAuthUiStep): string {
     return "";
   }
 
-  const urls = matches.map((raw) => raw.replace(/[),.;]+$/g, "").trim()).filter(Boolean);
+  const urls = matches
+    .map((raw) => raw.replace(/[),.;]+$/g, "").trim())
+    .filter(Boolean)
+    .filter((url) => {
+      const lower = url.toLowerCase();
+      if (lower.includes("docs.openclaw.ai")) {
+        return false;
+      }
+      return true;
+    });
+
+  if (urls.length === 0) {
+    return "";
+  }
+
   const score = (url: string): number => {
     const lower = url.toLowerCase();
     let value = 0;
-    if (lower.includes("docs.openclaw.ai")) {
-      value -= 100;
-    }
     if (lower.includes("oauth") || lower.includes("authorize") || lower.includes("consent")) {
-      value += 30;
+      value += 40;
     }
     if (lower.includes("login") || lower.includes("signin")) {
-      value += 20;
+      value += 25;
     }
     if (lower.includes("accounts.google.com") || lower.includes("github.com") || lower.includes("qwen")) {
-      value += 10;
+      value += 12;
     }
     if (lower.includes("127.0.0.1") || lower.includes("localhost")) {
-      value -= 10;
+      value -= 12;
     }
     return value;
   };
@@ -342,6 +353,16 @@ async function processWizardUntilPause(
       window.open(embeddedUrl, "_blank", "noopener,noreferrer");
     }
 
+    const shouldPauseForOAuthLink = Boolean(embeddedUrl) && step.type === "note";
+    if (shouldPauseForOAuthLink) {
+      state.modelsOauthStep = step;
+      state.modelsOauthStepInput = "";
+      state.modelsOauthStepUrl = embeddedUrl;
+      state.modelsOauthStatus = buildStepMessage(step);
+      state.modelsOauthRunning = false;
+      return;
+    }
+
     const autoValue = resolveAutoAnswer(step, state);
     if (autoValue !== null) {
       result = await client.request<WizardNextResult>("wizard.next", {
@@ -368,6 +389,9 @@ async function processWizardUntilPause(
 
 function normalizeManualAnswer(step: ModelsOAuthUiStep, value: string | undefined): unknown {
   const trimmed = asString(value);
+  if (step.type === "note" || step.type === "progress") {
+    return true;
+  }
   if (step.type === "action") {
     return trimmed || true;
   }
