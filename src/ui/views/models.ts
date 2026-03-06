@@ -1919,9 +1919,11 @@ export function renderModels(props: ModelsProps) {
                     </div>
                   </div>
                   <div class="models-provider-accordion__summary-badges">
-                    ${isActive ? html`<span class="models-provider-pill is-active">active</span>` : nothing}
-                    ${aliasModelIds.length > 0 ? html`<span class="models-provider-pill">refs ${aliasModelIds.length}</span>` : nothing}
-                    ${provider ? html`<span class="models-provider-pill">auth ${providerAuthCount}</span>` : nothing}
+                    <span class="models-provider-pill ${isActive ? "is-active" : "is-inactive"}">
+                      ${isActive ? "active" : "inactive"}
+                    </span>
+                    <span class="models-provider-pill">refs ${aliasModelIds.length}</span>
+                    <span class="models-provider-pill">auth ${providerAuthCount}</span>
                   </div>
                 </summary>
 
