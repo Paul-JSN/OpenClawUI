@@ -18,7 +18,6 @@ export class OpenClawEchartHost extends LitElement {
   private optionApplyTimer: number | null = null;
   private pendingOption: EChartsOption | null = null;
   private lastOptionSignature: string | null = null;
-  private suppressObserverResizeUntil = 0;
   private readonly onLayoutTransition = () => {
     this.runTransitionResize(520);
   };
@@ -142,9 +141,6 @@ export class OpenClawEchartHost extends LitElement {
       return;
     }
     this.resizeObserver = new ResizeObserver(() => {
-      if (performance.now() < this.suppressObserverResizeUntil) {
-        return;
-      }
       if (this.observerResizeRaf !== null) {
         return;
       }
@@ -152,7 +148,7 @@ export class OpenClawEchartHost extends LitElement {
         this.observerResizeRaf = null;
         this.chart?.resize({
           animation: {
-            duration: 0,
+            duration: 120,
           },
         });
       });
@@ -173,13 +169,10 @@ export class OpenClawEchartHost extends LitElement {
       this.transitionResizeTimeout = null;
     }
 
-    // Prevent resize-observer storms while layout is animating.
-    this.suppressObserverResizeUntil = performance.now() + Math.max(0, durationMs) + 120;
-
-    // Do only start/end resize (no per-frame animation work).
+    // Avoid per-frame resize storms during layout transitions.
     this.chart.resize({
       animation: {
-        duration: 0,
+        duration: 90,
       },
     });
 
@@ -188,7 +181,7 @@ export class OpenClawEchartHost extends LitElement {
       this.transitionResizeTimeout = window.setTimeout(() => {
         this.chart?.resize({
           animation: {
-            duration: 0,
+            duration: 70,
           },
         });
         this.transitionResizeTimeout = null;
