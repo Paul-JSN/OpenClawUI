@@ -8,7 +8,7 @@
   --shell-nav-width: 224px;
   --shell-nav-collapsed-width: 64px;
   --shell-topbar-height: 44px;
-  --shell-focus-duration: 320ms;
+  --shell-focus-duration: 260ms;
   --shell-focus-ease: cubic-bezier(0.22, 1, 0.36, 1);
   height: 100vh;
   display: grid;
@@ -339,6 +339,7 @@
     transform var(--shell-focus-duration) var(--shell-focus-ease);
   min-height: 0;
   transform: translateZ(0);
+  contain: layout paint;
   will-change: transform, opacity;
 }
 
@@ -548,6 +549,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 7px;
+  min-height: 30px;
   padding: 5px 8px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
@@ -653,7 +655,6 @@
 .nav--collapsed .nav-footer__label,
 .nav--collapsed .nav-collapse-cta__label {
   opacity: 0;
-  max-width: 0;
   transform: translateX(-6px);
   overflow: hidden;
   pointer-events: none;
@@ -690,27 +691,32 @@
 }
 
 .nav--collapsed .nav-item {
-  width: 30px;
-  min-height: 30px;
+  width: 32px;
+  min-height: 32px;
+  display: grid;
+  place-items: center;
   justify-content: center;
   padding: 0;
   gap: 0;
   margin-inline: auto;
+  contain: layout paint;
 }
 
 .nav--collapsed .nav-item__icon {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  position: static;
   width: 16px;
   height: 16px;
-  opacity: 0.85;
+  opacity: 0.9;
+  transform: none;
 }
 
 .nav--collapsed .nav-item__icon svg {
   width: 16px;
   height: 16px;
+}
+
+.nav--collapsed .nav-item::before {
+  display: none;
 }
 
 .nav--collapsed .nav-item.active {
@@ -1035,10 +1041,7 @@
     border-color var(--duration-fast) ease,
     background var(--duration-fast) ease,
     color var(--duration-fast) ease,
-    box-shadow var(--duration-fast) ease,
-    width var(--shell-focus-duration) var(--shell-focus-ease),
-    padding var(--shell-focus-duration) var(--shell-focus-ease),
-    margin var(--shell-focus-duration) var(--shell-focus-ease);
+    box-shadow var(--duration-fast) ease;
 }
 
 .nav-collapse-cta:hover {
