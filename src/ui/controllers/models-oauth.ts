@@ -396,15 +396,15 @@ function looksLikeOAuthCompletionNote(step: ModelsOAuthUiStep): boolean {
 
 function formatWizardEndMessage(result: { status?: string; error?: string }): string {
   if (result.status === "done" || !result.status) {
-    return "OAuth 연결 완료.";
+    return "OAuth completed.";
   }
   if (result.status === "cancelled") {
-    return "OAuth 진행이 취소됨.";
+    return "OAuth flow cancelled.";
   }
   if (result.status === "error") {
-    return `OAuth 실패: ${result.error ?? "unknown error"}`;
+    return `OAuth failed: ${result.error ?? "unknown error"}`;
   }
-  return `OAuth 종료: ${result.status}`;
+  return `OAuth finished: ${result.status}`;
 }
 
 async function finishWizard(
@@ -418,7 +418,7 @@ async function finishWizard(
   if (result.status === "done" || !result.status) {
     try {
       await onReload?.();
-      state.modelsOauthStatus = `${message} auth.profiles 갱신 완료.`;
+      state.modelsOauthStatus = `${message} auth.profiles refreshed.`;
     } catch (err) {
       state.modelsOauthStatus = `${message} (reload failed: ${String(err)})`;
     }
@@ -453,7 +453,7 @@ async function processWizardUntilPause(
     }
 
     if (looksLikeOAuthCompletionNote(step)) {
-      state.modelsOauthStatus = "OAuth 연결 완료. auth.profiles 갱신 중...";
+      state.modelsOauthStatus = "OAuth completed. Refreshing auth.profiles...";
       try {
         await client.request("wizard.cancel", { sessionId });
       } catch {
@@ -539,7 +539,7 @@ export async function startModelsOAuthWizard(
   const hints = extractProviderHints(params.providerId, params.method);
   state.modelsOauthProviderHint = hints.providerHint;
   state.modelsOauthMethodHint = hints.methodHint;
-  state.modelsOauthStatus = "OAuth wizard 시작 중...";
+  state.modelsOauthStatus = "Starting OAuth wizard...";
   state.modelsOauthRunning = true;
   state.lastError = null;
   clearModelsOAuthSession(state);
@@ -558,7 +558,7 @@ export async function startModelsOAuthWizard(
     await processWizardUntilPause(state, result, params.onReload);
   } catch (err) {
     state.lastError = String(err);
-    state.modelsOauthStatus = `OAuth wizard 실행 실패: ${String(err)}`;
+    state.modelsOauthStatus = `OAuth wizard failed: ${String(err)}`;
     state.modelsOauthRunning = false;
     if (state.modelsOauthSessionId) {
       try {
@@ -588,7 +588,7 @@ export async function submitModelsOAuthWizardStep(
 
   state.modelsOauthRunning = true;
   state.lastError = null;
-  state.modelsOauthStatus = "OAuth step 제출 중...";
+  state.modelsOauthStatus = "Submitting OAuth step...";
 
   const answerValue = normalizeManualAnswer(step, params.value ?? state.modelsOauthStepInput);
   clearModelsOAuthStep(state);
@@ -605,7 +605,7 @@ export async function submitModelsOAuthWizardStep(
     await processWizardUntilPause(state, result, params.onReload);
   } catch (err) {
     state.lastError = String(err);
-    state.modelsOauthStatus = `OAuth step 실패: ${String(err)}`;
+    state.modelsOauthStatus = `OAuth step failed: ${String(err)}`;
     state.modelsOauthRunning = false;
     if (state.modelsOauthSessionId) {
       try {
@@ -624,7 +624,7 @@ export async function cancelModelsOAuthWizard(state: ModelsOAuthWizardState): Pr
 
   if (!sessionId) {
     state.modelsOauthRunning = false;
-    state.modelsOauthStatus = "OAuth wizard 취소됨.";
+    state.modelsOauthStatus = "OAuth wizard cancelled.";
     clearModelsOAuthSession(state);
     return;
   }
@@ -639,7 +639,7 @@ export async function cancelModelsOAuthWizard(state: ModelsOAuthWizardState): Pr
     state.lastError = String(err);
   } finally {
     state.modelsOauthRunning = false;
-    state.modelsOauthStatus = "OAuth wizard 취소됨.";
+    state.modelsOauthStatus = "OAuth wizard cancelled.";
     clearModelsOAuthSession(state);
   }
 }

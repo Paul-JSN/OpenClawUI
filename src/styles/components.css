@@ -4706,6 +4706,9 @@ select:not([multiple]) {
 .models-provider-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   padding: 2px 8px;
   border: 1px solid var(--border);
   border-radius: 0;
@@ -4718,6 +4721,10 @@ select:not([multiple]) {
   color: var(--ok);
   border-color: color-mix(in oklab, var(--ok) 45%, var(--border));
   background: color-mix(in oklab, var(--ok) 12%, transparent);
+}
+
+.models-provider-pill.is-inactive {
+  color: var(--muted);
 }
 
 .models-provider-accordion-list {
@@ -4735,11 +4742,16 @@ select:not([multiple]) {
 .models-provider-accordion__summary {
   list-style: none;
   cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
   padding: 10px 12px;
+}
+
+.models-provider-accordion__summary > div:first-child {
+  min-width: 0;
 }
 
 .models-provider-accordion__summary::-webkit-details-marker {
@@ -4756,6 +4768,7 @@ select:not([multiple]) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: end;
   transition: transform var(--duration-fast) ease;
 }
 
@@ -4767,8 +4780,9 @@ select:not([multiple]) {
 .models-provider-accordion__summary-badges {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 6px;
-  margin-right: 12px;
 }
 
 .models-provider-accordion__body {
