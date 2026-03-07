@@ -8,7 +8,7 @@
   --shell-nav-width: 224px;
   --shell-nav-collapsed-width: 64px;
   --shell-topbar-height: 44px;
-  --shell-focus-duration: 280ms;
+  --shell-focus-duration: 420ms;
   --shell-focus-ease: cubic-bezier(0.22, 1, 0.36, 1);
   height: 100vh;
   display: grid;
@@ -20,7 +20,6 @@
   gap: 0;
   animation: dashboard-enter 0.4s var(--ease-out);
   transition: grid-template-columns var(--shell-focus-duration) var(--shell-focus-ease);
-  will-change: grid-template-columns;
   overflow: hidden;
 }
 
@@ -194,7 +193,8 @@
   gap: 1px;
   transition:
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .brand-title {
@@ -334,13 +334,11 @@
   border-right: 1px solid var(--sidebar-border);
   scrollbar-width: none; /* Firefox */
   transition:
+    width var(--shell-focus-duration) var(--shell-focus-ease),
     padding var(--shell-focus-duration) var(--shell-focus-ease),
-    opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
+    opacity var(--shell-focus-duration) var(--shell-focus-ease);
   min-height: 0;
-  transform: translateZ(0);
-  contain: layout paint;
-  will-change: transform, opacity;
+  will-change: width;
 }
 
 .nav::-webkit-scrollbar {
@@ -354,14 +352,13 @@
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
-  transform: translateX(-8px);
 }
 
 .nav--collapsed {
   width: var(--shell-nav-collapsed-width);
   min-width: var(--shell-nav-collapsed-width);
   padding: 14px 12px 0;
-  overflow: hidden;
+  overflow-y: auto;
   border-right: 1px solid var(--sidebar-border);
   opacity: 1;
   pointer-events: auto;
@@ -418,6 +415,7 @@
   margin-bottom: 6px;
   display: grid;
   gap: 1px;
+  transition: margin var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-group:last-child {
@@ -432,6 +430,7 @@
   opacity: 1;
   transform: translateY(0);
   transition:
+    gap var(--shell-focus-duration) var(--shell-focus-ease),
     max-height var(--shell-focus-duration) var(--shell-focus-ease),
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
     transform var(--shell-focus-duration) var(--shell-focus-ease);
@@ -474,7 +473,10 @@
   transition:
     color var(--duration-fast) ease,
     background var(--duration-fast) ease,
-    opacity var(--shell-focus-duration) var(--shell-focus-ease);
+    opacity var(--shell-focus-duration) var(--shell-focus-ease),
+    padding var(--shell-focus-duration) var(--shell-focus-ease),
+    margin var(--shell-focus-duration) var(--shell-focus-ease),
+    height var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-label:hover {
@@ -498,7 +500,8 @@
   white-space: nowrap;
   transition:
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-label__chevron {
@@ -511,7 +514,8 @@
   opacity: 0.5;
   transition:
     transform var(--shell-focus-duration) var(--shell-focus-ease),
-    opacity var(--shell-focus-duration) var(--shell-focus-ease);
+    opacity var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-group--collapsed .nav-label__chevron {
@@ -525,7 +529,6 @@
   align-items: center;
   justify-content: flex-start;
   gap: 7px;
-  min-height: 30px;
   padding: 5px 8px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
@@ -536,7 +539,9 @@
   transition:
     border-color var(--duration-fast) ease,
     background var(--duration-fast) ease,
-    color var(--duration-fast) ease;
+    color var(--duration-fast) ease,
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    padding var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-item::before {
@@ -584,7 +589,8 @@
   overflow: hidden;
   transition:
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-item:hover {
@@ -629,6 +635,7 @@
 .nav--collapsed .nav-footer__label,
 .nav--collapsed .nav-collapse-cta__label {
   opacity: 0;
+  max-width: 0;
   transform: translateX(-6px);
   overflow: hidden;
   pointer-events: none;
@@ -649,32 +656,12 @@
   margin-inline: auto;
 }
 
-.brand-text,
-.nav-label__text,
-.nav-label__chevron,
-.nav-item__text,
-.nav-item__active-indicator,
-.nav-footer__label,
-.nav-collapse-cta__label {
-  transition-delay: 0ms;
-}
-
-.shell:not(.shell--nav-collapsed) .brand-text,
-.shell:not(.shell--nav-collapsed) .nav-label__text,
-.shell:not(.shell--nav-collapsed) .nav-label__chevron,
-.shell:not(.shell--nav-collapsed) .nav-item__text,
-.shell:not(.shell--nav-collapsed) .nav-item__active-indicator,
-.shell:not(.shell--nav-collapsed) .nav-footer__label,
-.shell:not(.shell--nav-collapsed) .nav-collapse-cta__label {
-  transition-delay: 70ms;
-}
-
 .nav--collapsed .nav-group {
   margin-bottom: 8px;
 }
 
 .nav--collapsed .nav-group__items {
-  gap: 1px;
+  gap: 4px;
 }
 
 .nav--collapsed .nav-group--collapsed .nav-group__items {
@@ -685,32 +672,27 @@
 }
 
 .nav--collapsed .nav-item {
-  width: 32px;
-  min-height: 32px;
-  display: grid;
-  place-items: center;
+  width: 30px;
+  min-height: 30px;
   justify-content: center;
   padding: 0;
   gap: 0;
   margin-inline: auto;
-  overflow: hidden;
 }
 
 .nav--collapsed .nav-item__icon {
-  position: static;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
-  opacity: 0.9;
-  transform: none;
+  opacity: 0.85;
 }
 
 .nav--collapsed .nav-item__icon svg {
   width: 16px;
   height: 16px;
-}
-
-.nav--collapsed .nav-item::before {
-  display: none;
 }
 
 .nav--collapsed .nav-item.active {
@@ -1006,7 +988,8 @@
   white-space: nowrap;
   transition:
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-footer__value {
@@ -1035,7 +1018,10 @@
     border-color var(--duration-fast) ease,
     background var(--duration-fast) ease,
     color var(--duration-fast) ease,
-    box-shadow var(--duration-fast) ease;
+    box-shadow var(--duration-fast) ease,
+    width var(--shell-focus-duration) var(--shell-focus-ease),
+    padding var(--shell-focus-duration) var(--shell-focus-ease),
+    margin var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-collapse-cta:hover {
@@ -1049,7 +1035,8 @@
   white-space: nowrap;
   transition:
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
 
 .nav-collapse-cta__icon {
@@ -1129,25 +1116,6 @@
   flex-shrink: 0;
   transition:
     opacity var(--shell-focus-duration) var(--shell-focus-ease),
-    transform var(--shell-focus-duration) var(--shell-focus-ease);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shell,
-  .nav,
-  .brand-text,
-  .nav-label,
-  .nav-label__text,
-  .nav-label__chevron,
-  .nav-item,
-  .nav-item__text,
-  .nav-footer__label,
-  .nav-footer__value,
-  .nav-collapse-cta,
-  .nav-collapse-cta__label,
-  .nav-item__active-indicator,
-  .content-header {
-    transition-duration: 1ms !important;
-    transition-delay: 0ms !important;
-  }
+    transform var(--shell-focus-duration) var(--shell-focus-ease),
+    max-width var(--shell-focus-duration) var(--shell-focus-ease);
 }
