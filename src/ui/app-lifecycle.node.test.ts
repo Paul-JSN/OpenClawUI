@@ -27,7 +27,11 @@ function createHost() {
 
 describe("handleDisconnected", () => {
   it("stops and clears gateway client on teardown", () => {
-    const removeSpy = vi.spyOn(window, "removeEventListener").mockImplementation(() => undefined);
+    const removeSpy = vi.fn();
+    vi.stubGlobal(
+      "window",
+      { removeEventListener: removeSpy } as Pick<Window, "removeEventListener">,
+    );
     const host = createHost();
     const disconnectSpy = (
       host.topbarObserver as unknown as { disconnect: ReturnType<typeof vi.fn> }
@@ -40,6 +44,6 @@ describe("handleDisconnected", () => {
     expect(host.connected).toBe(false);
     expect(disconnectSpy).toHaveBeenCalledTimes(1);
     expect(host.topbarObserver).toBeNull();
-    removeSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 });

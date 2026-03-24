@@ -5,37 +5,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "amazon-bedrock",
     "id": "anthropic.claude-3-haiku-20240307-v1:0",
-    "name": "Claude 3 Haiku"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-haiku-20240307-v1:0:200k",
-    "name": "Claude 3 Haiku"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-sonnet-20240229-v1:0",
-    "name": "Claude 3 Sonnet"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-sonnet-20240229-v1:0:200k",
-    "name": "Claude 3 Sonnet"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-sonnet-20240229-v1:0:28k",
-    "name": "Claude 3 Sonnet"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
-    "name": "Claude 3.5 Sonnet"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "name": "Claude 3.5 Sonnet v2"
+    "name": "Claude Haiku 3"
   },
   {
     "provider": "amazon-bedrock",
@@ -61,11 +31,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "amazon-bedrock",
     "id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     "name": "Claude Haiku 4.5 (US)"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "anthropic.claude-3-opus-20240229-v1:0",
-    "name": "Claude Opus 3"
   },
   {
     "provider": "amazon-bedrock",
@@ -126,6 +91,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "amazon-bedrock",
     "id": "us.anthropic.claude-opus-4-6-v1",
     "name": "Claude Opus 4.6 (US)"
+  },
+  {
+    "provider": "amazon-bedrock",
+    "id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "name": "Claude Sonnet 3.5"
+  },
+  {
+    "provider": "amazon-bedrock",
+    "id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "name": "Claude Sonnet 3.5 v2"
   },
   {
     "provider": "amazon-bedrock",
@@ -194,16 +169,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
-    "id": "cohere.command-r-v1:0",
-    "name": "Command R"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "cohere.command-r-plus-v1:0",
-    "name": "Command R+"
-  },
-  {
-    "provider": "amazon-bedrock",
     "id": "deepseek.r1-v1:0",
     "name": "DeepSeek-R1"
   },
@@ -214,8 +179,13 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
-    "id": "deepseek.v3.2-v1:0",
+    "id": "deepseek.v3.2",
     "name": "DeepSeek-V3.2"
+  },
+  {
+    "provider": "amazon-bedrock",
+    "id": "mistral.devstral-2-123b",
+    "name": "Devstral 2 123B"
   },
   {
     "provider": "amazon-bedrock",
@@ -269,6 +239,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
+    "id": "meta.llama3-1-405b-instruct-v1:0",
+    "name": "Llama 3.1 405B Instruct"
+  },
+  {
+    "provider": "amazon-bedrock",
     "id": "meta.llama3-1-70b-instruct-v1:0",
     "name": "Llama 3.1 70B Instruct"
   },
@@ -314,6 +289,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
+    "id": "mistral.magistral-small-2509",
+    "name": "Magistral Small 1.2"
+  },
+  {
+    "provider": "amazon-bedrock",
     "id": "minimax.minimax-m2",
     "name": "MiniMax M2"
   },
@@ -329,13 +309,18 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
+    "id": "mistral.ministral-3-3b-instruct",
+    "name": "Ministral 3 3B"
+  },
+  {
+    "provider": "amazon-bedrock",
     "id": "mistral.ministral-3-8b-instruct",
     "name": "Ministral 3 8B"
   },
   {
     "provider": "amazon-bedrock",
-    "id": "mistral.mistral-large-2402-v1:0",
-    "name": "Mistral Large (24.02)"
+    "id": "mistral.mistral-large-3-675b-instruct",
+    "name": "Mistral Large 3"
   },
   {
     "provider": "amazon-bedrock",
@@ -369,6 +354,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
+    "id": "nvidia.nemotron-nano-3-30b",
+    "name": "NVIDIA Nemotron Nano 3 30B"
+  },
+  {
+    "provider": "amazon-bedrock",
     "id": "nvidia.nemotron-nano-9b-v2",
     "name": "NVIDIA Nemotron Nano 9B v2"
   },
@@ -384,8 +374,8 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "amazon-bedrock",
-    "id": "twelvelabs.pegasus-1-2-v1:0",
-    "name": "Pegasus v1.2"
+    "id": "mistral.pixtral-large-2502-v1:0",
+    "name": "Pixtral Large (25.02)"
   },
   {
     "provider": "amazon-bedrock",
@@ -416,16 +406,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "amazon-bedrock",
     "id": "qwen.qwen3-coder-480b-a35b-v1:0",
     "name": "Qwen3 Coder 480B A35B Instruct"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "amazon.titan-text-express-v1",
-    "name": "Titan Text G1 - Express"
-  },
-  {
-    "provider": "amazon-bedrock",
-    "id": "amazon.titan-text-express-v1:0:8k",
-    "name": "Titan Text G1 - Express"
   },
   {
     "provider": "amazon-bedrock",
@@ -689,8 +669,23 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "azure-openai-responses",
-    "id": "gpt-5.3-codex-spark",
-    "name": "GPT-5.3 Codex Spark"
+    "id": "gpt-5.4",
+    "name": "GPT-5.4"
+  },
+  {
+    "provider": "azure-openai-responses",
+    "id": "gpt-5.4-mini",
+    "name": "GPT-5.4 mini"
+  },
+  {
+    "provider": "azure-openai-responses",
+    "id": "gpt-5.4-nano",
+    "name": "GPT-5.4 nano"
+  },
+  {
+    "provider": "azure-openai-responses",
+    "id": "gpt-5.4-pro",
+    "name": "GPT-5.4 Pro"
   },
   {
     "provider": "azure-openai-responses",
@@ -854,6 +849,21 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "github-copilot",
+    "id": "gpt-5.3-codex",
+    "name": "GPT-5.3-Codex"
+  },
+  {
+    "provider": "github-copilot",
+    "id": "gpt-5.4",
+    "name": "GPT-5.4"
+  },
+  {
+    "provider": "github-copilot",
+    "id": "gpt-5.4-mini",
+    "name": "GPT-5.4 mini"
+  },
+  {
+    "provider": "github-copilot",
     "id": "grok-code-fast-1",
     "name": "Grok Code Fast 1"
   },
@@ -944,6 +954,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "google",
+    "id": "gemini-3.1-flash-lite-preview",
+    "name": "Gemini 3.1 Flash Lite Preview"
+  },
+  {
+    "provider": "google",
     "id": "gemini-3.1-pro-preview",
     "name": "Gemini 3.1 Pro Preview"
   },
@@ -994,18 +1009,23 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "google-antigravity",
+    "id": "claude-sonnet-4-6",
+    "name": "Claude Sonnet 4.6 (Antigravity)"
+  },
+  {
+    "provider": "google-antigravity",
     "id": "gemini-3-flash",
     "name": "Gemini 3 Flash (Antigravity)"
   },
   {
     "provider": "google-antigravity",
-    "id": "gemini-3-pro-high",
-    "name": "Gemini 3 Pro High (Antigravity)"
+    "id": "gemini-3.1-pro-high",
+    "name": "Gemini 3.1 Pro High (Antigravity)"
   },
   {
     "provider": "google-antigravity",
-    "id": "gemini-3-pro-low",
-    "name": "Gemini 3 Pro Low (Antigravity)"
+    "id": "gemini-3.1-pro-low",
+    "name": "Gemini 3.1 Pro Low (Antigravity)"
   },
   {
     "provider": "google-antigravity",
@@ -1289,6 +1309,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "minimax",
+    "id": "MiniMax-M2.1-highspeed",
+    "name": "MiniMax-M2.1-highspeed"
+  },
+  {
+    "provider": "minimax",
     "id": "MiniMax-M2.5",
     "name": "MiniMax-M2.5"
   },
@@ -1296,6 +1321,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "minimax",
     "id": "MiniMax-M2.5-highspeed",
     "name": "MiniMax-M2.5-highspeed"
+  },
+  {
+    "provider": "minimax",
+    "id": "MiniMax-M2.7",
+    "name": "MiniMax-M2.7"
+  },
+  {
+    "provider": "minimax",
+    "id": "MiniMax-M2.7-highspeed",
+    "name": "MiniMax-M2.7-highspeed"
   },
   {
     "provider": "minimax-cn",
@@ -1309,6 +1344,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "minimax-cn",
+    "id": "MiniMax-M2.1-highspeed",
+    "name": "MiniMax-M2.1-highspeed"
+  },
+  {
+    "provider": "minimax-cn",
     "id": "MiniMax-M2.5",
     "name": "MiniMax-M2.5"
   },
@@ -1318,9 +1358,19 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "name": "MiniMax-M2.5-highspeed"
   },
   {
+    "provider": "minimax-cn",
+    "id": "MiniMax-M2.7",
+    "name": "MiniMax-M2.7"
+  },
+  {
+    "provider": "minimax-cn",
+    "id": "MiniMax-M2.7-highspeed",
+    "name": "MiniMax-M2.7-highspeed"
+  },
+  {
     "provider": "mistral",
     "id": "codestral-latest",
-    "name": "Codestral"
+    "name": "Codestral (latest)"
   },
   {
     "provider": "mistral",
@@ -1330,7 +1380,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "devstral-medium-latest",
-    "name": "Devstral 2"
+    "name": "Devstral 2 (latest)"
   },
   {
     "provider": "mistral",
@@ -1355,7 +1405,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "magistral-medium-latest",
-    "name": "Magistral Medium"
+    "name": "Magistral Medium (latest)"
   },
   {
     "provider": "mistral",
@@ -1365,12 +1415,12 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "ministral-3b-latest",
-    "name": "Ministral 3B"
+    "name": "Ministral 3B (latest)"
   },
   {
     "provider": "mistral",
     "id": "ministral-8b-latest",
-    "name": "Ministral 8B"
+    "name": "Ministral 8B (latest)"
   },
   {
     "provider": "mistral",
@@ -1380,7 +1430,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "mistral-large-latest",
-    "name": "Mistral Large"
+    "name": "Mistral Large (latest)"
   },
   {
     "provider": "mistral",
@@ -1395,7 +1445,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "mistral-medium-latest",
-    "name": "Mistral Medium"
+    "name": "Mistral Medium (latest)"
   },
   {
     "provider": "mistral",
@@ -1415,7 +1465,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "mistral-small-latest",
-    "name": "Mistral Small"
+    "name": "Mistral Small (latest)"
   },
   {
     "provider": "mistral",
@@ -1440,7 +1490,7 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   {
     "provider": "mistral",
     "id": "pixtral-large-latest",
-    "name": "Pixtral Large"
+    "name": "Pixtral Large (latest)"
   },
   {
     "provider": "openai",
@@ -1579,8 +1629,23 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openai",
-    "id": "gpt-5.3-codex-spark",
-    "name": "GPT-5.3 Codex Spark"
+    "id": "gpt-5.4",
+    "name": "GPT-5.4"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4-mini",
+    "name": "GPT-5.4 mini"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4-nano",
+    "name": "GPT-5.4 nano"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4-pro",
+    "name": "GPT-5.4 Pro"
   },
   {
     "provider": "openai",
@@ -1658,6 +1723,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "name": "GPT-5.3 Codex Spark"
   },
   {
+    "provider": "openai-codex",
+    "id": "gpt-5.4",
+    "name": "GPT-5.4"
+  },
+  {
+    "provider": "openai-codex",
+    "id": "gpt-5.4-mini",
+    "name": "GPT-5.4 Mini"
+  },
+  {
     "provider": "opencode",
     "id": "big-pickle",
     "name": "Big Pickle"
@@ -1709,23 +1784,8 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "opencode",
-    "id": "gemini-3-pro",
-    "name": "Gemini 3 Pro"
-  },
-  {
-    "provider": "opencode",
     "id": "gemini-3.1-pro",
     "name": "Gemini 3.1 Pro Preview"
-  },
-  {
-    "provider": "opencode",
-    "id": "glm-4.6",
-    "name": "GLM-4.6"
-  },
-  {
-    "provider": "opencode",
-    "id": "glm-4.7",
-    "name": "GLM-4.7"
   },
   {
     "provider": "opencode",
@@ -1784,13 +1844,23 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "opencode",
-    "id": "kimi-k2",
-    "name": "Kimi K2"
+    "id": "gpt-5.4",
+    "name": "GPT-5.4"
   },
   {
     "provider": "opencode",
-    "id": "kimi-k2-thinking",
-    "name": "Kimi K2 Thinking"
+    "id": "gpt-5.4-mini",
+    "name": "GPT-5.4 Mini"
+  },
+  {
+    "provider": "opencode",
+    "id": "gpt-5.4-nano",
+    "name": "GPT-5.4 Nano"
+  },
+  {
+    "provider": "opencode",
+    "id": "gpt-5.4-pro",
+    "name": "GPT-5.4 Pro"
   },
   {
     "provider": "opencode",
@@ -1799,8 +1869,13 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "opencode",
-    "id": "minimax-m2.1",
-    "name": "MiniMax M2.1"
+    "id": "mimo-v2-omni-free",
+    "name": "MiMo V2 Omni Free"
+  },
+  {
+    "provider": "opencode",
+    "id": "mimo-v2-pro-free",
+    "name": "MiMo V2 Pro Free"
   },
   {
     "provider": "opencode",
@@ -1814,8 +1889,28 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "opencode",
-    "id": "trinity-large-preview-free",
-    "name": "Trinity Large Preview"
+    "id": "nemotron-3-super-free",
+    "name": "Nemotron 3 Super Free"
+  },
+  {
+    "provider": "opencode-go",
+    "id": "glm-5",
+    "name": "GLM-5"
+  },
+  {
+    "provider": "opencode-go",
+    "id": "kimi-k2.5",
+    "name": "Kimi K2.5"
+  },
+  {
+    "provider": "opencode-go",
+    "id": "minimax-m2.5",
+    "name": "MiniMax M2.5"
+  },
+  {
+    "provider": "opencode-go",
+    "id": "minimax-m2.7",
+    "name": "MiniMax M2.7"
   },
   {
     "provider": "openrouter",
@@ -1939,8 +2034,8 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "openrouter/auto",
-    "name": "Auto Router"
+    "id": "auto",
+    "name": "Auto"
   },
   {
     "provider": "openrouter",
@@ -1961,6 +2056,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "bytedance-seed/seed-1.6-flash",
     "name": "ByteDance Seed: Seed 1.6 Flash"
+  },
+  {
+    "provider": "openrouter",
+    "id": "bytedance-seed/seed-2.0-lite",
+    "name": "ByteDance Seed: Seed-2.0-Lite"
   },
   {
     "provider": "openrouter",
@@ -1999,11 +2099,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "deepseek/deepseek-v3.1-terminus:exacto",
-    "name": "DeepSeek: DeepSeek V3.1 Terminus (exacto)"
-  },
-  {
-    "provider": "openrouter",
     "id": "deepseek/deepseek-v3.2",
     "name": "DeepSeek: DeepSeek V3.2"
   },
@@ -2024,7 +2119,12 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "openrouter/free",
+    "id": "essentialai/rnj-1-instruct",
+    "name": "EssentialAI: Rnj 1 Instruct"
+  },
+  {
+    "provider": "openrouter",
+    "id": "free",
     "name": "Free Models Router"
   },
   {
@@ -2079,6 +2179,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
+    "id": "google/gemini-3.1-flash-lite-preview",
+    "name": "Google: Gemini 3.1 Flash Lite Preview"
+  },
+  {
+    "provider": "openrouter",
     "id": "google/gemini-3.1-pro-preview",
     "name": "Google: Gemini 3.1 Pro Preview"
   },
@@ -2089,18 +2194,13 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "google/gemma-3-27b-it",
-    "name": "Google: Gemma 3 27B"
-  },
-  {
-    "provider": "openrouter",
-    "id": "google/gemma-3-27b-it:free",
-    "name": "Google: Gemma 3 27B (free)"
-  },
-  {
-    "provider": "openrouter",
     "id": "inception/mercury",
     "name": "Inception: Mercury"
+  },
+  {
+    "provider": "openrouter",
+    "id": "inception/mercury-2",
+    "name": "Inception: Mercury 2"
   },
   {
     "provider": "openrouter",
@@ -2121,11 +2221,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "meta-llama/llama-3-8b-instruct",
     "name": "Meta: Llama 3 8B Instruct"
-  },
-  {
-    "provider": "openrouter",
-    "id": "meta-llama/llama-3.1-405b-instruct",
-    "name": "Meta: Llama 3.1 405B Instruct"
   },
   {
     "provider": "openrouter",
@@ -2176,6 +2271,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "minimax/minimax-m2.5",
     "name": "MiniMax: MiniMax M2.5"
+  },
+  {
+    "provider": "openrouter",
+    "id": "minimax/minimax-m2.5:free",
+    "name": "MiniMax: MiniMax M2.5 (free)"
+  },
+  {
+    "provider": "openrouter",
+    "id": "minimax/minimax-m2.7",
+    "name": "MiniMax: MiniMax M2.7"
   },
   {
     "provider": "openrouter",
@@ -2264,6 +2369,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
+    "id": "mistralai/mistral-small-2603",
+    "name": "Mistral: Mistral Small 4"
+  },
+  {
+    "provider": "openrouter",
     "id": "mistralai/mistral-small-creative",
     "name": "Mistral: Mistral Small Creative"
   },
@@ -2304,11 +2414,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "moonshotai/kimi-k2-0905:exacto",
-    "name": "MoonshotAI: Kimi K2 0905 (exacto)"
-  },
-  {
-    "provider": "openrouter",
     "id": "moonshotai/kimi-k2-thinking",
     "name": "MoonshotAI: Kimi K2 Thinking"
   },
@@ -2341,6 +2446,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "nvidia/nemotron-3-nano-30b-a3b:free",
     "name": "NVIDIA: Nemotron 3 Nano 30B A3B (free)"
+  },
+  {
+    "provider": "openrouter",
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "name": "NVIDIA: Nemotron 3 Super"
+  },
+  {
+    "provider": "openrouter",
+    "id": "nvidia/nemotron-3-super-120b-a12b:free",
+    "name": "NVIDIA: Nemotron 3 Super (free)"
   },
   {
     "provider": "openrouter",
@@ -2534,18 +2649,38 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
+    "id": "openai/gpt-5.3-chat",
+    "name": "OpenAI: GPT-5.3 Chat"
+  },
+  {
+    "provider": "openrouter",
     "id": "openai/gpt-5.3-codex",
     "name": "OpenAI: GPT-5.3-Codex"
   },
   {
     "provider": "openrouter",
-    "id": "openai/gpt-oss-120b",
-    "name": "OpenAI: gpt-oss-120b"
+    "id": "openai/gpt-5.4",
+    "name": "OpenAI: GPT-5.4"
   },
   {
     "provider": "openrouter",
-    "id": "openai/gpt-oss-120b:exacto",
-    "name": "OpenAI: gpt-oss-120b (exacto)"
+    "id": "openai/gpt-5.4-mini",
+    "name": "OpenAI: GPT-5.4 Mini"
+  },
+  {
+    "provider": "openrouter",
+    "id": "openai/gpt-5.4-nano",
+    "name": "OpenAI: GPT-5.4 Nano"
+  },
+  {
+    "provider": "openrouter",
+    "id": "openai/gpt-5.4-pro",
+    "name": "OpenAI: GPT-5.4 Pro"
+  },
+  {
+    "provider": "openrouter",
+    "id": "openai/gpt-oss-120b",
+    "name": "OpenAI: gpt-oss-120b"
   },
   {
     "provider": "openrouter",
@@ -2611,11 +2746,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "openai/o4-mini-high",
     "name": "OpenAI: o4 Mini High"
-  },
-  {
-    "provider": "openrouter",
-    "id": "auto",
-    "name": "OpenRouter Auto"
   },
   {
     "provider": "openrouter",
@@ -2716,11 +2846,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "qwen/qwen3-coder",
     "name": "Qwen: Qwen3 Coder 480B A35B"
-  },
-  {
-    "provider": "openrouter",
-    "id": "qwen/qwen3-coder:exacto",
-    "name": "Qwen: Qwen3 Coder 480B A35B (exacto)"
   },
   {
     "provider": "openrouter",
@@ -2829,6 +2954,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
+    "id": "qwen/qwen3.5-9b",
+    "name": "Qwen: Qwen3.5-9B"
+  },
+  {
+    "provider": "openrouter",
     "id": "qwen/qwen3.5-flash-02-23",
     "name": "Qwen: Qwen3.5-Flash"
   },
@@ -2889,8 +3019,8 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "upstage/solar-pro-3:free",
-    "name": "Upstage: Solar Pro 3 (free)"
+    "id": "upstage/solar-pro-3",
+    "name": "Upstage: Solar Pro 3"
   },
   {
     "provider": "openrouter",
@@ -2929,6 +3059,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
+    "id": "x-ai/grok-4.20-beta",
+    "name": "xAI: Grok 4.20 Beta"
+  },
+  {
+    "provider": "openrouter",
     "id": "x-ai/grok-code-fast-1",
     "name": "xAI: Grok Code Fast 1"
   },
@@ -2936,6 +3071,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "openrouter",
     "id": "xiaomi/mimo-v2-flash",
     "name": "Xiaomi: MiMo-V2-Flash"
+  },
+  {
+    "provider": "openrouter",
+    "id": "xiaomi/mimo-v2-omni",
+    "name": "Xiaomi: MiMo-V2-Omni"
+  },
+  {
+    "provider": "openrouter",
+    "id": "xiaomi/mimo-v2-pro",
+    "name": "Xiaomi: MiMo-V2-Pro"
   },
   {
     "provider": "openrouter",
@@ -2969,11 +3114,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "openrouter",
-    "id": "z-ai/glm-4.6:exacto",
-    "name": "Z.ai: GLM 4.6 (exacto)"
-  },
-  {
-    "provider": "openrouter",
     "id": "z-ai/glm-4.6v",
     "name": "Z.ai: GLM 4.6V"
   },
@@ -2993,14 +3133,9 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "name": "Z.ai: GLM 5"
   },
   {
-    "provider": "qwen-portal",
-    "id": "coder-model",
-    "name": "Qwen Coder"
-  },
-  {
-    "provider": "qwen-portal",
-    "id": "vision-model",
-    "name": "Qwen Vision"
+    "provider": "openrouter",
+    "id": "z-ai/glm-5-turbo",
+    "name": "Z.ai: GLM 5 Turbo"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3069,11 +3204,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
-    "id": "openai/codex-mini",
-    "name": "Codex Mini"
-  },
-  {
-    "provider": "vercel-ai-gateway",
     "id": "cohere/command-a",
     "name": "Command A"
   },
@@ -3099,6 +3229,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
+    "id": "deepseek/deepseek-r1",
+    "name": "DeepSeek-R1"
+  },
+  {
+    "provider": "vercel-ai-gateway",
     "id": "deepseek/deepseek-v3.1",
     "name": "DeepSeek-V3.1"
   },
@@ -3119,6 +3254,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
+    "id": "google/gemini-2.0-flash",
+    "name": "Gemini 2.0 Flash"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "google/gemini-2.0-flash-lite",
+    "name": "Gemini 2.0 Flash Lite"
+  },
+  {
+    "provider": "vercel-ai-gateway",
     "id": "google/gemini-2.5-flash",
     "name": "Gemini 2.5 Flash"
   },
@@ -3126,16 +3271,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "google/gemini-2.5-flash-lite",
     "name": "Gemini 2.5 Flash Lite"
-  },
-  {
-    "provider": "vercel-ai-gateway",
-    "id": "google/gemini-2.5-flash-lite-preview-09-2025",
-    "name": "Gemini 2.5 Flash Lite Preview 09-2025"
-  },
-  {
-    "provider": "vercel-ai-gateway",
-    "id": "google/gemini-2.5-flash-preview-09-2025",
-    "name": "Gemini 2.5 Flash Preview 09-2025"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3151,6 +3286,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "google/gemini-3-pro-preview",
     "name": "Gemini 3 Pro Preview"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "google/gemini-3.1-flash-lite-preview",
+    "name": "Gemini 3.1 Flash Lite Preview"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3179,8 +3319,23 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
+    "id": "zai/glm-4.7-flash",
+    "name": "GLM 4.7 Flash"
+  },
+  {
+    "provider": "vercel-ai-gateway",
     "id": "zai/glm-4.7-flashx",
     "name": "GLM 4.7 FlashX"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "zai/glm-5",
+    "name": "GLM 5"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "zai/glm-5-turbo",
+    "name": "GLM 5 Turbo"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3196,11 +3351,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "zai/glm-4.6v-flash",
     "name": "GLM-4.6V-Flash"
-  },
-  {
-    "provider": "vercel-ai-gateway",
-    "id": "zai/glm-5",
-    "name": "GLM-5"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3246,6 +3396,26 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "openai/gpt-5.3-codex",
     "name": "GPT 5.3 Codex"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "openai/gpt-5.4",
+    "name": "GPT 5.4"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "openai/gpt-5.4-mini",
+    "name": "GPT 5.4 Mini"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "openai/gpt-5.4-nano",
+    "name": "GPT 5.4 Nano"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "openai/gpt-5.4-pro",
+    "name": "GPT 5.4 Pro"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3314,8 +3484,8 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
-    "id": "openai/gpt-oss-120b",
-    "name": "gpt-oss-120b"
+    "id": "openai/gpt-5.3-chat",
+    "name": "GPT-5.3 Chat"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3379,6 +3549,21 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
+    "id": "xai/grok-4.20-non-reasoning-beta",
+    "name": "Grok 4.20 Beta Non-Reasoning"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "xai/grok-4.20-reasoning-beta",
+    "name": "Grok 4.20 Beta Reasoning"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "xai/grok-4.20-multi-agent-beta",
+    "name": "Grok 4.20 Multi Agent Beta"
+  },
+  {
+    "provider": "vercel-ai-gateway",
     "id": "xai/grok-code-fast-1",
     "name": "Grok Code Fast 1"
   },
@@ -3391,6 +3576,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "moonshotai/kimi-k2",
     "name": "Kimi K2"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "moonshotai/kimi-k2-0905",
+    "name": "Kimi K2 0905"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3459,6 +3649,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
+    "id": "inception/mercury-2",
+    "name": "Mercury 2"
+  },
+  {
+    "provider": "vercel-ai-gateway",
     "id": "inception/mercury-coder-small",
     "name": "Mercury Coder Small Beta"
   },
@@ -3466,6 +3661,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "xiaomi/mimo-v2-flash",
     "name": "MiMo V2 Flash"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "xiaomi/mimo-v2-pro",
+    "name": "MiMo V2 Pro"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3486,6 +3686,21 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "minimax/minimax-m2.5",
     "name": "MiniMax M2.5"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "minimax/minimax-m2.5-highspeed",
+    "name": "MiniMax M2.5 High Speed"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "minimax/minimax-m2.7",
+    "name": "Minimax M2.7"
+  },
+  {
+    "provider": "vercel-ai-gateway",
+    "id": "minimax/minimax-m2.7-highspeed",
+    "name": "MiniMax M2.7 High Speed"
   },
   {
     "provider": "vercel-ai-gateway",
@@ -3609,6 +3824,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "vercel-ai-gateway",
+    "id": "alibaba/qwen3-max",
+    "name": "Qwen3 Max"
+  },
+  {
+    "provider": "vercel-ai-gateway",
     "id": "alibaba/qwen3-max-preview",
     "name": "Qwen3 Max Preview"
   },
@@ -3651,16 +3871,6 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "vercel-ai-gateway",
     "id": "arcee-ai/trinity-large-preview",
     "name": "Trinity Large Preview"
-  },
-  {
-    "provider": "vercel-ai-gateway",
-    "id": "vercel/v0-1.0-md",
-    "name": "v0-1.0-md"
-  },
-  {
-    "provider": "vercel-ai-gateway",
-    "id": "vercel/v0-1.5-md",
-    "name": "v0-1.5-md"
   },
   {
     "provider": "xai",
@@ -3759,6 +3969,16 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
   },
   {
     "provider": "xai",
+    "id": "grok-4.20-beta-latest-non-reasoning",
+    "name": "Grok 4.20 Beta (Non-Reasoning)"
+  },
+  {
+    "provider": "xai",
+    "id": "grok-4.20-beta-latest-reasoning",
+    "name": "Grok 4.20 Beta (Reasoning)"
+  },
+  {
+    "provider": "xai",
     "id": "grok-beta",
     "name": "Grok Beta"
   },
@@ -3816,6 +4036,11 @@ export const DEFAULT_MODELS_CATALOG: DefaultCatalogModel[] = [
     "provider": "zai",
     "id": "glm-5",
     "name": "GLM-5"
+  },
+  {
+    "provider": "zai",
+    "id": "glm-5-turbo",
+    "name": "GLM-5-Turbo"
   }
 ];
 
@@ -3838,8 +4063,8 @@ export const DEFAULT_PROVIDER_IDS: string[] = [
   "openai",
   "openai-codex",
   "opencode",
+  "opencode-go",
   "openrouter",
-  "qwen-portal",
   "vercel-ai-gateway",
   "xai",
   "zai"
