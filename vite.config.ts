@@ -30,7 +30,7 @@ export default defineConfig(() => {
     build: {
       outDir: path.resolve(here, "../dist/control-ui"),
       emptyOutDir: true,
-      sourcemap: false,
+      sourcemap: true,
       // Keep CI/onboard logs clean; current control UI chunking is intentionally above 500 kB.
       chunkSizeWarningLimit: 1024,
     },
@@ -39,5 +39,23 @@ export default defineConfig(() => {
       port: 5173,
       strictPort: true,
     },
+    plugins: [
+      {
+        name: "control-ui-dev-stubs",
+        configureServer(server) {
+          server.middlewares.use("/__openclaw/control-ui-config.json", (_req, res) => {
+            res.setHeader("Content-Type", "application/json");
+            res.end(
+              JSON.stringify({
+                basePath: "/",
+                assistantName: "",
+                assistantAvatar: "",
+                assistantAgentId: "",
+              }),
+            );
+          });
+        },
+      },
+    ],
   };
 });
