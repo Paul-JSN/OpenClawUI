@@ -214,6 +214,7 @@ export async function refreshActiveTab(host: SettingsHost) {
       loadConfigSchema(host as unknown as OpenClawApp),
       loadConfig(host as unknown as OpenClawApp),
       loadCronModelSuggestions(host as unknown as OpenClawApp),
+      loadModels(host as unknown as OpenClawApp),
     ]);
   }
   if (host.tab === "cron") {
@@ -221,9 +222,6 @@ export async function refreshActiveTab(host: SettingsHost) {
   }
   if (host.tab === "skills") {
     await loadSkills(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "models") {
-    await loadModels(host as unknown as OpenClawApp);
   }
   if (host.tab === "agents") {
     await loadAgents(host as unknown as OpenClawApp);
