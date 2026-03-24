@@ -1,4 +1,5 @@
-import { html, nothing } from "lit";
+import { html, nothing, type TemplateResult } from "lit";
+import "../components/echart-host.ts";
 import { t, i18n, SUPPORTED_LOCALES, type Locale, isSupportedLocale } from "../../i18n/index.ts";
 import type { EventLogEntry } from "../app-events.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "../external-link.ts";
@@ -8,6 +9,7 @@ import { icons } from "../icons.ts";
 import type { UiSettings } from "../storage.ts";
 import type {
   AttentionItem,
+  CostUsageSummary,
   CronJob,
   CronStatus,
   SessionsListResult,
@@ -17,6 +19,13 @@ import type {
 import { renderOverviewAttention } from "./overview-attention.ts";
 import { renderOverviewCards } from "./overview-cards.ts";
 import { renderOverviewEventLog } from "./overview-event-log.ts";
+import {
+  buildReactCostByProviderOption,
+  buildReactSourceDonutOption,
+  buildReactTokenByProviderOption,
+} from "./charts/options.ts";
+import { buildUsageAnalyticsViewModel } from "./usage-analytics-adapter.ts";
+import type { DisplayTimeZone } from "./charts/timezone.ts";
 import {
   resolveAuthHintKind,
   shouldShowInsecureContextHint,
@@ -36,8 +45,12 @@ export type OverviewProps = {
   cronEnabled: boolean | null;
   cronNext: number | null;
   lastChannelsRefresh: number | null;
+  usageLoading: boolean;
+  usageError: string | null;
   // New dashboard data
   usageResult: SessionsUsageResult | null;
+  usageCostSummary: CostUsageSummary | null;
+  displayTimeZone: DisplayTimeZone;
   sessionsResult: SessionsListResult | null;
   skillsReport: SkillStatusReport | null;
   cronJobs: CronJob[];
@@ -57,6 +70,88 @@ export type OverviewProps = {
   onNavigate: (tab: string) => void;
   onRefreshLogs: () => void;
 };
+
+const compactNumber = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+const usdFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function formatTokens(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  if (value >= 1000) {
+    return compactNumber.format(value);
+  }
+  return Math.round(value).toLocaleString();
+}
+
+function formatUsd(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  return usdFormatter.format(value);
+}
+
+function trendPercent(values: number[]): number | null {
+  if (values.length < 2) {
+    return null;
+  }
+  const first = values[0] ?? 0;
+  const last = values[values.length - 1] ?? 0;
+  if (!Number.isFinite(first) || !Number.isFinite(last)) {
+    return null;
+  }
+  if (first === 0 && last === 0) {
+    return 0;
+  }
+  if (first === 0) {
+    return 100;
+  }
+  return ((last - first) / Math.abs(first)) * 100;
+}
+
+function formatTokenReadWriteSplit(args: {
+  total: number;
+  cacheRead: number;
+  cacheWrite: number;
+}): string {
+  if (args.total <= 0) {
+    return "no cache activity";
+  }
+  const readPct = Math.round((Math.max(0, args.cacheRead) / args.total) * 100);
+  const writePct = Math.round((Math.max(0, args.cacheWrite) / args.total) * 100);
+  return `cache read ${readPct}% · cache write ${writePct}%`;
+}
+
+function renderTrend(value: number | null): TemplateResult {
+  if (value == null) {
+    return html`<span class="pill">—</span>`;
+  }
+  const rounded = Math.round(value);
+  const cls = rounded > 0 ? "ok" : rounded < 0 ? "danger" : "warn";
+  const prefix = rounded > 0 ? "+" : "";
+  return html`<span class="pill ${cls}">${prefix}${rounded}%</span>`;
+}
+
+function renderKpiIcon(kind: "activity" | "tokens" | "tools" | "cost" | "sessions") {
+  if (kind === "activity") {
+    return html`<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>`;
+  }
+  if (kind === "tokens") {
+    return html`<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>`;
+  }
+  if (kind === "tools") {
+    return html`<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+  }
+  if (kind === "cost") {
+    return html`<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+  }
+  return html`<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
+}
 
 export function renderOverview(props: OverviewProps) {
   const snapshot = props.hello?.snapshot as
@@ -194,7 +289,169 @@ export function renderOverview(props: OverviewProps) {
     ? props.settings.locale
     : i18n.getLocale();
 
+  const analyticsModel = buildUsageAnalyticsViewModel({
+    usageResult: props.usageResult,
+    usageCostSummary: props.usageCostSummary,
+    usageStatus: null,
+    rangeKey: "overview",
+  });
+  const snapshot24h = analyticsModel.snapshot24h;
+  const costTrendOption = analyticsModel.trends.length
+    ? buildReactCostByProviderOption(analyticsModel, props.displayTimeZone)
+    : null;
+  const tokenByProviderOption = analyticsModel.trends.length
+    ? buildReactTokenByProviderOption(analyticsModel, props.displayTimeZone)
+    : null;
+  const sourceRows =
+    snapshot24h && snapshot24h.sourceSummary.length > 0
+      ? snapshot24h.sourceSummary
+      : analyticsModel.sourceSummary;
+  const sourceDonutOption = sourceRows.length ? buildReactSourceDonutOption(sourceRows) : null;
+  const snapshotWindowLabel = snapshot24h ? "24h" : "selected range";
+  const messagesWindow = snapshot24h?.messageCount ?? analyticsModel.snapshot.messageCount;
+  const toolCallsWindow = snapshot24h?.toolCallCount ?? analyticsModel.snapshot.toolCallCount;
+  const tokensWindow = snapshot24h?.totalTokens ?? analyticsModel.snapshot.totalTokens;
+  const costWindow = snapshot24h?.totalCost ?? analyticsModel.snapshot.totalCost;
+  const sessionsWindow = snapshot24h?.totalSessions ?? analyticsModel.snapshot.totalSessions;
+  const messageDelta = trendPercent(analyticsModel.trends.map((point) => point.sessions));
+  const toolDelta = trendPercent(analyticsModel.trends.map((point) => point.sessions));
+  const tokenDelta = trendPercent(analyticsModel.trends.map((point) => point.tokens));
+  const sessionsDelta = trendPercent(analyticsModel.trends.map((point) => point.sessions));
+  const breakdown = snapshot24h?.breakdown ?? analyticsModel.snapshot.breakdown;
+  const tokenBreakdownLabel = formatTokenReadWriteSplit({
+    total: Math.max(0, tokensWindow),
+    cacheRead: Math.max(0, breakdown.cacheReadTokens),
+    cacheWrite: Math.max(0, breakdown.cacheWriteTokens),
+  });
+  const rawCostRows = [
+    { label: "Input", value: Math.max(0, breakdown.inputCost), color: "var(--react-cost-color-1)" },
+    { label: "Output", value: Math.max(0, breakdown.outputCost), color: "var(--react-cost-color-2)" },
+    { label: "Cache Read", value: Math.max(0, breakdown.cacheReadCost), color: "var(--react-cost-color-3)" },
+    { label: "Cache Write", value: Math.max(0, breakdown.cacheWriteCost), color: "var(--react-cost-color-4)" },
+  ];
+  const costBreakdownTotal = rawCostRows.reduce((acc, row) => acc + row.value, 0);
+  const costRows = rawCostRows.map((row) => ({
+    ...row,
+    percent: costBreakdownTotal > 0 ? (row.value / costBreakdownTotal) * 100 : 0,
+  }));
+
+  const customOverviewHero = html`
+    <section class="react-analytics-page">
+      <div class="react-analytics-head">
+        <h2>Overview</h2>
+        <span>// New UI analytics shell</span>
+      </div>
+
+      <div class="react-kpi-grid">
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Messages (${snapshotWindowLabel})</label>
+              <strong>${Math.max(0, messagesWindow).toLocaleString()}</strong>
+            </div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderKpiIcon("activity")}</span>
+              ${renderTrend(messageDelta)}
+            </div>
+          </div>
+        </article>
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Tokens (${snapshotWindowLabel})</label>
+              <strong>${formatTokens(tokensWindow)}</strong>
+              <div class="muted" style="font-size: 11px;">${tokenBreakdownLabel}</div>
+            </div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderKpiIcon("tokens")}</span>
+              ${renderTrend(tokenDelta)}
+            </div>
+          </div>
+        </article>
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Tool Calls (${snapshotWindowLabel})</label>
+              <strong>${Math.max(0, toolCallsWindow).toLocaleString()}</strong>
+            </div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderKpiIcon("tools")}</span>
+              ${renderTrend(toolDelta)}
+            </div>
+          </div>
+        </article>
+        <article class="react-kpi-card">
+          <div class="react-kpi-head">
+            <div>
+              <label>Sessions (${snapshotWindowLabel})</label>
+              <strong>${Math.max(0, sessionsWindow).toLocaleString()}</strong>
+            </div>
+            <div class="react-kpi-side">
+              <span class="react-kpi-icon">${renderKpiIcon("sessions")}</span>
+              ${renderTrend(sessionsDelta)}
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="react-chart-grid react-chart-grid--overview">
+        <article class="react-chart-card react-chart-card--wide">
+          <h3>Cost by Providers</h3>
+          ${costTrendOption
+            ? html`<oc-echart class="react-chart-canvas" .option=${costTrendOption}></oc-echart>`
+            : html`<div class="usage-chart-empty"><strong>No Data</strong><span>No provider cost trend data.</span></div>`}
+        </article>
+        <article class="react-chart-card react-chart-card--total-cost24h">
+          <h3>Total Cost (${snapshotWindowLabel})</h3>
+          <div class="react-cost-snapshot react-cost-snapshot--total24h">
+            <div class="react-cost-snapshot__head">
+              <strong>${formatUsd(costWindow)}</strong>
+              <span class="react-cost-snapshot__icon">${renderKpiIcon("cost")}</span>
+            </div>
+            <div class="react-cost-breakdown">
+              ${costRows.map((row) => html`
+                <div class="react-cost-breakdown__row">
+                  <div class="react-cost-breakdown__meta">
+                    <span><i style="background:${row.color}"></i>${row.label}</span>
+                    <b>${formatUsd(row.value)}</b>
+                    <em>${row.percent.toFixed(0)}%</em>
+                  </div>
+                </div>
+              `)}
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="react-chart-grid react-chart-grid--overview">
+        <article class="react-chart-card react-chart-card--wide">
+          <h3>Token Usage by Providers</h3>
+          ${tokenByProviderOption
+            ? html`<oc-echart class="react-chart-canvas" .option=${tokenByProviderOption}></oc-echart>`
+            : html`<div class="usage-chart-empty"><strong>No Data</strong><span>No provider token trend data.</span></div>`}
+        </article>
+        <article class="react-chart-card">
+          <h3>Token Usage by Source</h3>
+          ${sourceDonutOption
+            ? html`<oc-echart class="react-chart-canvas react-chart-canvas--compact" .option=${sourceDonutOption}></oc-echart>`
+            : html`<div class="usage-chart-empty"><strong>No Data</strong><span>No source usage data.</span></div>`}
+        </article>
+      </div>
+
+      ${(props.usageLoading || props.usageError || props.lastError)
+        ? html`
+            <div class="react-status-grid">
+              ${props.usageLoading ? html`<article class="react-status-card"><label>Overview Analytics</label><strong>loading…</strong></article>` : nothing}
+              ${props.usageError ? html`<article class="react-status-card"><label>Usage</label><strong class="warn">${props.usageError}</strong></article>` : nothing}
+              ${props.lastError ? html`<article class="react-status-card"><label>Gateway</label><strong class="danger">${props.lastError}</strong></article>` : nothing}
+            </div>
+          `
+        : nothing}
+    </section>
+  `;
+
   return html`
+    ${customOverviewHero}
     <section class="grid">
       <div class="card">
         <div class="card-title">${t("overview.access.title")}</div>

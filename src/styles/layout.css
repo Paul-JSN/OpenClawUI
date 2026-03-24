@@ -1049,3 +1049,159 @@
 .chat-controls-dropdown {
   display: none;
 }
+
+/* ===========================================
+   New UI shell overrides (restored custom layout feel)
+   =========================================== */
+.shell {
+  --shell-pad: 16px;
+  --shell-gap: 16px;
+  --shell-nav-width: 224px;
+  --shell-nav-collapsed-width: 64px;
+  --shell-topbar-height: 44px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-accent) 65%, transparent) 0%, transparent 32%),
+    var(--bg);
+}
+
+.topbar {
+  min-height: var(--shell-topbar-height);
+  background: color-mix(in srgb, var(--chrome) 88%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+}
+
+.topnav-shell {
+  min-height: var(--shell-topbar-height);
+  padding: 0 14px;
+  gap: 12px;
+}
+
+.topnav-shell__content {
+  min-width: 0;
+}
+
+.topnav-shell .dashboard-header {
+  min-height: var(--shell-topbar-height);
+}
+
+.topnav-shell .dashboard-header__title,
+.topnav-shell .dashboard-header__breadcrumb-current,
+.page-title {
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topbar-search,
+.topbar-theme-mode__btn,
+.topbar-nav-toggle,
+.nav-collapse-toggle {
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+  box-shadow: none;
+}
+
+.topbar-search:hover,
+.topbar-theme-mode__btn:hover,
+.topbar-nav-toggle:hover,
+.nav-collapse-toggle:hover {
+  border-color: var(--border-hover);
+  background: color-mix(in srgb, var(--bg-hover) 84%, transparent);
+}
+
+.topbar-search__kbd {
+  border-radius: 2px;
+  font-family: var(--mono);
+}
+
+.sidebar {
+  background: color-mix(in srgb, var(--sidebar, var(--panel)) 92%, transparent);
+  border-right: 1px solid var(--sidebar-border, var(--border));
+}
+
+.sidebar-shell {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-strong) 78%, transparent) 0%, color-mix(in srgb, var(--panel) 92%, transparent) 100%);
+}
+
+.sidebar-shell__header,
+.sidebar-shell__footer {
+  border-color: var(--border);
+}
+
+.sidebar-brand__logo {
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 82%, transparent), 0 0 20px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.sidebar-brand__eyebrow,
+.nav-section__label-text,
+.page-sub,
+.sidebar-version__label {
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav-section__label {
+  border-radius: 2px;
+}
+
+.nav-item {
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+
+.nav-item:hover {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--panel-hover) 74%, transparent);
+}
+
+.nav-item.active,
+.nav-item--active {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.nav-item.active .nav-item__icon,
+.nav-item--active .nav-item__icon,
+.nav-item.active .nav-item__text,
+.nav-item--active .nav-item__text {
+  color: var(--text-strong);
+}
+
+.content {
+  background:
+    linear-gradient(to right, color-mix(in srgb, var(--grid-line) 100%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--grid-line) 100%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 28%),
+    var(--bg);
+  background-size: 24px 24px, 24px 24px, auto, auto;
+}
+
+.content-header {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--panel-strong) 78%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 82%, transparent);
+}
+
+.page-meta .pill {
+  border-radius: 2px;
+}
+
+@media (max-width: 900px) {
+  .topnav-shell {
+    padding: 0 10px;
+  }
+
+  .content-header {
+    padding: 12px;
+  }
+}

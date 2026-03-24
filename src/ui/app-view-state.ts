@@ -215,6 +215,7 @@ export type AppViewState = {
   usageSelectedHours: number[];
   usageChartMode: "tokens" | "cost";
   usageDailyChartMode: "total" | "by-type";
+  usageAnalyticsMode: "cost" | "limits" | "activity";
   usageTimeSeriesMode: "cumulative" | "per-turn";
   usageTimeSeriesBreakdownMode: "total" | "by-type";
   usageTimeSeries: SessionUsageTimeSeries | null;

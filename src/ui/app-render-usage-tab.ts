@@ -1,7 +1,9 @@
-import { nothing } from "lit";
+import { html, nothing } from "lit";
 import type { AppViewState } from "./app-view-state.ts";
 import type { UsageState } from "./controllers/usage.ts";
 import { loadUsage, loadSessionTimeSeries, loadSessionLogs } from "./controllers/usage.ts";
+import { buildUsageAnalyticsViewModel } from "./views/usage-analytics-adapter.ts";
+import { renderUsageAnalyticsSections } from "./views/usage-render-analytics.ts";
 import { renderUsage } from "./views/usage.ts";
 
 // Module-scope debounce for usage date changes (avoids type-unsafe hacks on state object)
@@ -18,7 +20,28 @@ export function renderUsageTab(state: AppViewState) {
     return nothing;
   }
 
-  return renderUsage({
+  const usageAnalyticsView = buildUsageAnalyticsViewModel({
+    usageResult: state.usageResult,
+    usageCostSummary: state.usageCostSummary,
+    usageStatus: null,
+    rangeStartDate: state.usageStartDate,
+    rangeEndDate: state.usageEndDate,
+    rangeKey: `${state.usageStartDate}:${state.usageEndDate}`,
+  });
+
+  return html`
+    ${renderUsageAnalyticsSections({
+      model: usageAnalyticsView,
+      loading: state.usageLoading,
+      error: state.usageError,
+      displayTimeZone: state.usageTimeZone,
+      costBreakdown: state.usageCostSummary?.breakdown ?? null,
+      usageAnalyticsMode: state.usageAnalyticsMode,
+      onUsageAnalyticsModeChange: (mode) => {
+        state.usageAnalyticsMode = mode;
+      },
+    })}
+    ${renderUsage({
     data: {
       loading: state.usageLoading,
       error: state.usageError,
@@ -281,5 +304,6 @@ export function renderUsageTab(state: AppViewState) {
         },
       },
     },
-  });
+  })}
+  `;
 }
