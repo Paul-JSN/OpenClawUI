@@ -412,6 +412,15 @@ export function renderUsage(props: UsageProps) {
           >
             UTC
           </button>
+          <button
+            class="usage-source-tz__btn"
+            type="button"
+            ?disabled=${props.loading}
+            @click=${props.onRefresh}
+            title="Refresh usage data"
+          >
+            ${props.loading ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
       </div>
 
@@ -663,6 +672,7 @@ export function renderUsage(props: UsageProps) {
                           <thead>
                             <tr>
                               <th>Provider</th>
+                              <th>Model</th>
                               <th>Window</th>
                               <th>Utilization</th>
                               <th>Remaining</th>
@@ -681,6 +691,7 @@ export function renderUsage(props: UsageProps) {
                                   style=${`--usage-detail-delay:${Math.min(index, 10) * 26}ms`}
                                 >
                                   <td><span class="react-provider-badge" title=${entry.provider}>${entry.providerDisplayName}</span></td>
+                                  <td><span class="react-model-label">${entry.model}</span></td>
                                   <td><span class="react-window-pill">${windowName}</span></td>
                                   <td>
                                     <div class="react-util-cell">
