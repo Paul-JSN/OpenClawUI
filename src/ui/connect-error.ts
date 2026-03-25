@@ -47,6 +47,7 @@ function formatErrorFromMessageAndDetails(error: ErrorWithMessageAndDetails): st
   ) {
     return "gateway connect failed";
   }
+
   return message;
 }
 

@@ -5,18 +5,18 @@ export const TAB_GROUPS = [
   { label: "chat", tabs: ["chat"] },
   {
     label: "control",
-    tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"],
+    tabs: ["overview", "channels", "instances", "sessions", "usage", "cron", "models"],
   },
   { label: "agent", tabs: ["agents", "skills", "nodes"] },
   {
     label: "settings",
     tabs: [
-      "config",
       "communications",
       "appearance",
       "automation",
       "infrastructure",
       "aiAgents",
+      "config",
       "debug",
       "logs",
     ],
@@ -31,15 +31,16 @@ export type Tab =
   | "sessions"
   | "usage"
   | "cron"
+  | "models"
   | "skills"
   | "nodes"
   | "chat"
-  | "config"
   | "communications"
   | "appearance"
   | "automation"
   | "infrastructure"
   | "aiAgents"
+  | "config"
   | "debug"
   | "logs";
 
@@ -51,15 +52,16 @@ const TAB_PATHS: Record<Tab, string> = {
   sessions: "/sessions",
   usage: "/usage",
   cron: "/cron",
+  models: "/models",
   skills: "/skills",
   nodes: "/nodes",
   chat: "/chat",
-  config: "/config",
   communications: "/communications",
   appearance: "/appearance",
   automation: "/automation",
   infrastructure: "/infrastructure",
   aiAgents: "/ai-agents",
+  config: "/config",
   debug: "/debug",
   logs: "/logs",
 };
@@ -163,22 +165,24 @@ export function iconForTab(tab: Tab): IconName {
       return "barChart";
     case "cron":
       return "loader";
+    case "models":
+      return "brain";
     case "skills":
       return "zap";
     case "nodes":
       return "monitor";
-    case "config":
-      return "settings";
     case "communications":
-      return "send";
+      return "messageSquare";
     case "appearance":
-      return "spark";
+      return "image";
     case "automation":
-      return "terminal";
+      return "wrench";
     case "infrastructure":
-      return "globe";
+      return "monitor";
     case "aiAgents":
       return "brain";
+    case "config":
+      return "settings";
     case "debug":
       return "bug";
     case "logs":

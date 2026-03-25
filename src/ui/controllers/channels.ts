@@ -1,9 +1,10 @@
+import { formatConnectError } from "../connect-error.ts";
 import { ChannelsStatusSnapshot } from "../types.ts";
-import type { ChannelsState } from "./channels.types.ts";
 import {
   formatMissingOperatorReadScopeMessage,
   isMissingOperatorReadScopeError,
 } from "./scope-errors.ts";
+import type { ChannelsState } from "./channels.types.ts";
 
 export type { ChannelsState };
 
@@ -24,12 +25,9 @@ export async function loadChannels(state: ChannelsState, probe: boolean) {
     state.channelsSnapshot = res;
     state.channelsLastSuccess = Date.now();
   } catch (err) {
-    if (isMissingOperatorReadScopeError(err)) {
-      state.channelsSnapshot = null;
-      state.channelsError = formatMissingOperatorReadScopeMessage("channel status");
-    } else {
-      state.channelsError = String(err);
-    }
+    state.channelsError = isMissingOperatorReadScopeError(err)
+      ? formatMissingOperatorReadScopeMessage("channel status")
+      : formatConnectError(err);
   } finally {
     state.channelsLoading = false;
   }
@@ -52,7 +50,7 @@ export async function startWhatsAppLogin(state: ChannelsState, force: boolean) {
     state.whatsappLoginQrDataUrl = res.qrDataUrl ?? null;
     state.whatsappLoginConnected = null;
   } catch (err) {
-    state.whatsappLoginMessage = String(err);
+    state.whatsappLoginMessage = formatConnectError(err);
     state.whatsappLoginQrDataUrl = null;
     state.whatsappLoginConnected = null;
   } finally {
@@ -78,7 +76,7 @@ export async function waitWhatsAppLogin(state: ChannelsState) {
       state.whatsappLoginQrDataUrl = null;
     }
   } catch (err) {
-    state.whatsappLoginMessage = String(err);
+    state.whatsappLoginMessage = formatConnectError(err);
     state.whatsappLoginConnected = null;
   } finally {
     state.whatsappBusy = false;
@@ -96,7 +94,7 @@ export async function logoutWhatsApp(state: ChannelsState) {
     state.whatsappLoginQrDataUrl = null;
     state.whatsappLoginConnected = null;
   } catch (err) {
-    state.whatsappLoginMessage = String(err);
+    state.whatsappLoginMessage = formatConnectError(err);
   } finally {
     state.whatsappBusy = false;
   }

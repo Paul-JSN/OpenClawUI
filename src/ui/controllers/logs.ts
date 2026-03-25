@@ -1,3 +1,4 @@
+import { formatConnectError } from "../connect-error.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { LogEntry, LogLevel } from "../types.ts";
 import {
@@ -81,8 +82,6 @@ export function parseLogLine(line: string): LogEntry {
     let message: string | null = null;
     if (typeof obj["1"] === "string") {
       message = obj["1"];
-    } else if (typeof obj["2"] === "string") {
-      message = obj["2"];
     } else if (!contextObj && typeof obj["0"] === "string") {
       message = obj["0"];
     } else if (typeof obj.message === "string") {
@@ -144,12 +143,9 @@ export async function loadLogs(state: LogsState, opts?: { reset?: boolean; quiet
     state.logsTruncated = Boolean(payload.truncated);
     state.logsLastFetchAt = Date.now();
   } catch (err) {
-    if (isMissingOperatorReadScopeError(err)) {
-      state.logsEntries = [];
-      state.logsError = formatMissingOperatorReadScopeMessage("logs");
-    } else {
-      state.logsError = String(err);
-    }
+    state.logsError = isMissingOperatorReadScopeError(err)
+      ? formatMissingOperatorReadScopeMessage("logs")
+      : formatConnectError(err);
   } finally {
     if (!opts?.quiet) {
       state.logsLoading = false;

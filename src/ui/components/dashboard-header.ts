@@ -1,27 +1,37 @@
 import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { titleForTab, type Tab } from "../navigation.js";
+import { titleForTab, type Tab } from "../navigation.ts";
 
 @customElement("dashboard-header")
 export class DashboardHeader extends LitElement {
-  override createRenderRoot() {
+  @property({ type: String }) tab: Tab = "overview";
+
+  createRenderRoot() {
     return this;
   }
 
-  @property() tab: Tab = "overview";
+  private handleOverviewClick(event: Event) {
+    event.preventDefault();
+    this.dispatchEvent(
+      new CustomEvent("dashboard-navigate", {
+        detail: { tab: "overview" as Tab },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 
-  override render() {
+  render() {
     const label = titleForTab(this.tab);
-
     return html`
       <div class="dashboard-header">
         <div class="dashboard-header__breadcrumb">
-          <span
+          <a
             class="dashboard-header__breadcrumb-link"
-            @click=${() => this.dispatchEvent(new CustomEvent("navigate", { detail: "overview", bubbles: true, composed: true }))}
+            href="/overview"
+            @click=${this.handleOverviewClick}
+            >OpenClaw</a
           >
-            OpenClaw
-          </span>
           <span class="dashboard-header__breadcrumb-sep">›</span>
           <span class="dashboard-header__breadcrumb-current">${label}</span>
         </div>
@@ -30,5 +40,11 @@ export class DashboardHeader extends LitElement {
         </div>
       </div>
     `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "dashboard-header": DashboardHeader;
   }
 }

@@ -1,3 +1,4 @@
+import { formatConnectError } from "../connect-error.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { ConfigSchemaResponse, ConfigSnapshot, ConfigUiHints } from "../types.ts";
 import type { JsonSchema } from "../views/config-form.shared.ts";
@@ -46,7 +47,7 @@ export async function loadConfig(state: ConfigState) {
     const res = await state.client.request<ConfigSnapshot>("config.get", {});
     applyConfigSnapshot(state, res);
   } catch (err) {
-    state.lastError = String(err);
+    state.lastError = formatConnectError(err);
   } finally {
     state.configLoading = false;
   }
@@ -64,7 +65,7 @@ export async function loadConfigSchema(state: ConfigState) {
     const res = await state.client.request<ConfigSchemaResponse>("config.schema", {});
     applyConfigSchema(state, res);
   } catch (err) {
-    state.lastError = String(err);
+    state.lastError = formatConnectError(err);
   } finally {
     state.configSchemaLoading = false;
   }
@@ -144,7 +145,7 @@ export async function saveConfig(state: ConfigState) {
     state.configFormDirty = false;
     await loadConfig(state);
   } catch (err) {
-    state.lastError = String(err);
+    state.lastError = formatConnectError(err);
   } finally {
     state.configSaving = false;
   }
@@ -171,7 +172,7 @@ export async function applyConfig(state: ConfigState) {
     state.configFormDirty = false;
     await loadConfig(state);
   } catch (err) {
-    state.lastError = String(err);
+    state.lastError = formatConnectError(err);
   } finally {
     state.configApplying = false;
   }
@@ -184,19 +185,11 @@ export async function runUpdate(state: ConfigState) {
   state.updateRunning = true;
   state.lastError = null;
   try {
-    const res = await state.client.request<{
-      ok?: boolean;
-      result?: { status?: string; reason?: string };
-    }>("update.run", {
+    await state.client.request("update.run", {
       sessionKey: state.applySessionKey,
     });
-    if (res && res.ok === false) {
-      const status = res.result?.status ?? "error";
-      const reason = res.result?.reason ?? "Update failed.";
-      state.lastError = `Update ${status}: ${reason}`;
-    }
   } catch (err) {
-    state.lastError = String(err);
+    state.lastError = formatConnectError(err);
   } finally {
     state.updateRunning = false;
   }
@@ -223,61 +216,5 @@ export function removeConfigFormValue(state: ConfigState, path: Array<string | n
   state.configFormDirty = true;
   if (state.configFormMode === "form") {
     state.configRaw = serializeConfigForm(base);
-  }
-}
-
-export function findAgentConfigEntryIndex(
-  config: Record<string, unknown> | null,
-  agentId: string,
-): number {
-  const normalizedAgentId = agentId.trim();
-  if (!normalizedAgentId) {
-    return -1;
-  }
-  const list = (config as { agents?: { list?: unknown[] } } | null)?.agents?.list;
-  if (!Array.isArray(list)) {
-    return -1;
-  }
-  return list.findIndex(
-    (entry) =>
-      entry &&
-      typeof entry === "object" &&
-      "id" in entry &&
-      (entry as { id?: string }).id === normalizedAgentId,
-  );
-}
-
-export function ensureAgentConfigEntry(state: ConfigState, agentId: string): number {
-  const normalizedAgentId = agentId.trim();
-  if (!normalizedAgentId) {
-    return -1;
-  }
-  const source =
-    state.configForm ?? (state.configSnapshot?.config as Record<string, unknown> | null);
-  const existingIndex = findAgentConfigEntryIndex(source, normalizedAgentId);
-  if (existingIndex >= 0) {
-    return existingIndex;
-  }
-  const list = (source as { agents?: { list?: unknown[] } } | null)?.agents?.list;
-  const nextIndex = Array.isArray(list) ? list.length : 0;
-  updateConfigFormValue(state, ["agents", "list", nextIndex, "id"], normalizedAgentId);
-  return nextIndex;
-}
-
-export async function openConfigFile(state: ConfigState): Promise<void> {
-  if (!state.client || !state.connected) {
-    return;
-  }
-  try {
-    await state.client.request("config.openFile", {});
-  } catch {
-    const path = state.configSnapshot?.path;
-    if (path) {
-      try {
-        await navigator.clipboard.writeText(path);
-      } catch {
-        // ignore
-      }
-    }
   }
 }

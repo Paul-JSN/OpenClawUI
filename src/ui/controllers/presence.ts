@@ -1,3 +1,4 @@
+import { formatConnectError } from "../connect-error.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { PresenceEntry } from "../types.ts";
 import {
@@ -34,13 +35,9 @@ export async function loadPresence(state: PresenceState) {
       state.presenceStatus = "No presence payload.";
     }
   } catch (err) {
-    if (isMissingOperatorReadScopeError(err)) {
-      state.presenceEntries = [];
-      state.presenceStatus = null;
-      state.presenceError = formatMissingOperatorReadScopeMessage("instance presence");
-    } else {
-      state.presenceError = String(err);
-    }
+    state.presenceError = isMissingOperatorReadScopeError(err)
+      ? formatMissingOperatorReadScopeMessage("instance presence")
+      : formatConnectError(err);
   } finally {
     state.presenceLoading = false;
   }
