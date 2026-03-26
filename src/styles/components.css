@@ -5678,30 +5678,45 @@ select:not([multiple]) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
   min-height: 220px;
   padding: 36px 24px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, var(--bg-elevated), color-mix(in srgb, var(--bg-elevated) 70%, transparent)),
-    linear-gradient(90deg, transparent, var(--accent-subtle), transparent);
+    radial-gradient(circle at top, color-mix(in srgb, var(--accent-subtle) 92%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 96%, transparent), color-mix(in srgb, var(--panel) 86%, transparent));
   box-shadow:
     inset 0 1px 0 var(--card-highlight),
+    0 24px 48px -36px color-mix(in srgb, var(--accent-glow) 32%, transparent),
     var(--shadow-sm);
   overflow: hidden;
+  isolation: isolate;
   text-align: center;
 }
 
-.loading-state::before {
+.loading-state::before,
+.loading-state::after {
   content: "";
   position: absolute;
   inset: 0;
+  pointer-events: none;
+}
+
+.loading-state::before {
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 18px 18px;
-  opacity: 0.18;
-  pointer-events: none;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent 78%);
+  opacity: 0.16;
+}
+
+.loading-state::after {
+  inset: auto -12% -48px;
+  height: 128px;
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent-glow) 22%, transparent), transparent 70%);
+  opacity: 0.85;
 }
 
 .loading-state--compact {
@@ -5712,53 +5727,74 @@ select:not([multiple]) {
   text-align: left;
 }
 
-.loading-state__visual,
+.loading-state__spinner,
 .loading-state__copy {
   position: relative;
   z-index: 1;
 }
 
-.loading-state__visual {
-  width: 60px;
-  height: 60px;
+.loading-state__spinner {
+  position: relative;
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
 }
 
-.loading-state__frame,
-.loading-state__pulse,
-.loading-state__scan {
+.loading-state__spinner::before,
+.loading-state__spinner::after,
+.loading-state__ring,
+.loading-state__dot {
   position: absolute;
   inset: 0;
+  border-radius: 24px;
 }
 
-.loading-state__frame {
-  border: 1px solid var(--border-strong);
-  background: linear-gradient(135deg, transparent, color-mix(in srgb, var(--accent-subtle) 70%, transparent));
+.loading-state__spinner::before {
+  content: "";
+  inset: 12px;
+  border-radius: 18px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent), transparent 72%);
+  filter: blur(1px);
+  opacity: 0.95;
 }
 
-.loading-state__frame--outer {
-  animation: loading-state-orbit 2.8s linear infinite;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-glow) 60%, transparent);
-}
-
-.loading-state__frame--inner {
-  inset: 11px;
-  border-color: color-mix(in srgb, var(--accent-2-muted) 60%, var(--border-strong));
-  animation: loading-state-orbit-reverse 1.9s linear infinite;
-}
-
-.loading-state__pulse {
-  inset: 22px;
-  background: radial-gradient(circle, var(--accent) 0%, var(--accent-muted) 40%, transparent 75%);
-  animation: loading-state-pulse 1.2s var(--ease-in-out) infinite;
-}
-
-.loading-state__scan {
-  inset: 8px;
-  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--accent-glow) 80%, transparent) 50%, transparent 100%);
+.loading-state__spinner::after {
+  content: "";
+  inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-subtle) 72%, var(--border));
+  background: linear-gradient(135deg, transparent, color-mix(in srgb, var(--bg-elevated) 74%, transparent));
   opacity: 0.8;
-  animation: loading-state-scan 1.6s linear infinite;
+  transform: rotate(10deg);
+}
+
+.loading-state__ring {
+  inset: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-glow) 42%, var(--border-strong));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent-muted) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent-subtle) 48%, transparent);
+  animation: loading-state-ring 2.4s linear infinite;
+}
+
+.loading-state__dot {
+  inset: 9px;
+  animation: loading-state-orbit 1.75s linear infinite;
+}
+
+.loading-state__dot::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-2-muted) 80%, white));
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--accent-subtle) 72%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent-glow) 42%, transparent);
 }
 
 .loading-state__label {
@@ -5774,74 +5810,71 @@ select:not([multiple]) {
 .loading-state__detail {
   display: block;
   margin-top: 6px;
+  max-width: 34ch;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.5;
 }
 
-.loading-state--compact .loading-state__visual {
-  width: 42px;
-  height: 42px;
+.loading-state--compact .loading-state__spinner {
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
 }
 
-.loading-state--compact .loading-state__frame--inner {
+.loading-state--compact .loading-state__spinner::before {
   inset: 8px;
+  border-radius: 13px;
 }
 
-.loading-state--compact .loading-state__pulse {
-  inset: 15px;
+.loading-state--compact .loading-state__spinner::after {
+  inset: 3px;
+  border-radius: 15px;
 }
 
-@keyframes loading-state-orbit {
+.loading-state--compact .loading-state__ring {
+  inset: 7px;
+  border-radius: 13px;
+}
+
+.loading-state--compact .loading-state__dot {
+  inset: 7px;
+  border-radius: 13px;
+}
+
+.loading-state--compact .loading-state__dot::after {
+  width: 9px;
+  height: 9px;
+}
+
+.loading-state--compact .loading-state__detail {
+  max-width: none;
+}
+
+@keyframes loading-state-ring {
   from {
-    transform: rotate(0deg) scale(0.96);
+    transform: rotate(0deg) scale(0.98);
   }
   50% {
     transform: rotate(180deg) scale(1);
   }
   to {
-    transform: rotate(360deg) scale(0.96);
+    transform: rotate(360deg) scale(0.98);
   }
 }
 
-@keyframes loading-state-orbit-reverse {
+@keyframes loading-state-orbit {
   from {
-    transform: rotate(45deg) scale(1);
-  }
-  50% {
-    transform: rotate(-135deg) scale(0.92);
+    transform: rotate(0deg);
   }
   to {
-    transform: rotate(-315deg) scale(1);
-  }
-}
-
-@keyframes loading-state-pulse {
-  0%,
-  100% {
-    transform: scale(0.75);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.12);
-    opacity: 1;
-  }
-}
-
-@keyframes loading-state-scan {
-  from {
-    transform: translateY(-18px);
-  }
-  to {
-    transform: translateY(18px);
+    transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-state__frame--outer,
-  .loading-state__frame--inner,
-  .loading-state__pulse,
-  .loading-state__scan {
+  .loading-state__ring,
+  .loading-state__dot {
     animation: none !important;
   }
 }

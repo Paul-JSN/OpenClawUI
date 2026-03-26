@@ -1711,6 +1711,10 @@
   letter-spacing: 0.04em;
 }
 
+.settings-hub__focus-pill {
+  background: color-mix(in srgb, var(--accent-subtle) 44%, var(--bg-elevated));
+}
+
 .settings-hub__hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1773,6 +1777,12 @@
   text-transform: uppercase;
 }
 
+.settings-hub__summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .settings-hub__summary-description {
   margin: 0;
   color: var(--muted);
@@ -1784,14 +1794,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.settings-hub__summary-empty {
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .settings-hub__forms {

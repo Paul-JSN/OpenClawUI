@@ -34,9 +34,7 @@ export type CuratedConfigPageProps = {
 
 type CuratedConfigPageDefinition = {
   label: string;
-  eyebrow: string;
   description: string;
-  focusAreas: string[];
   sections: string[];
   quickLinks: Tab[];
 };
@@ -45,56 +43,59 @@ type CuratedSectionSummary = {
   key: string;
   label: string;
   description: string;
-  subsections: string[];
+  previewItems: string[];
+  structureLabel: string | null;
+  valueLabel: string;
+  valueTone: "pill--ok" | "";
 };
 
 const CURATED_PAGE_DEFINITIONS: Record<CuratedConfigPageId, CuratedConfigPageDefinition> = {
   communications: {
     label: "Communications",
-    eyebrow: "Channels · Delivery · Voice",
-    description:
-      "Curated controls for channel accounts, routing, broadcast behavior, and voice/talk settings.",
-    focusAreas: ["Channels", "Messages", "Hooks", "Broadcast", "Voice"],
-    sections: ["channels", "messages", "hooks", "broadcast", "talk", "audio"],
+    description: "Schema-backed messaging, delivery, and voice roots from the loaded config.",
+    sections: ["channels", "messages", "broadcast", "audio", "media", "talk"],
     quickLinks: ["channels"],
   },
   appearance: {
     label: "Appearance",
-    eyebrow: "UI · Layout · Canvas",
-    description:
-      "A focused surface for interface polish, presentation preferences, shortcuts, and visual host settings.",
-    focusAreas: ["UI", "Bindings", "Canvas Host"],
+    description: "Schema-backed interface and presentation roots from the loaded config.",
     sections: ["ui", "bindings", "canvasHost"],
     quickLinks: [],
   },
   automation: {
     label: "Automation",
-    eyebrow: "Schedules · Commands · Tooling",
-    description:
-      "Safe scaffolding for scheduled jobs, custom commands, event hooks, and tool-driven workflows.",
-    focusAreas: ["Cron", "Commands", "Hooks", "Tools"],
-    sections: ["cron", "commands", "hooks", "tools"],
-    quickLinks: ["cron", "skills"],
+    description: "Schema-backed scheduling, commands, and workflow roots from the loaded config.",
+    sections: ["cron", "commands", "hooks"],
+    quickLinks: ["cron"],
   },
   infrastructure: {
     label: "Infrastructure",
-    eyebrow: "Gateway · Web · Discovery",
-    description:
-      "Gateway runtime, web endpoints, networking/discovery, plugin surface, logs, and release posture in one place.",
-    focusAreas: ["Gateway", "Web", "Discovery", "Logging", "Updates"],
-    sections: ["gateway", "web", "discovery", "plugins", "logging", "env", "update"],
+    description: "Schema-backed gateway, runtime, and host-related roots from the loaded config.",
+    sections: [
+      "gateway",
+      "web",
+      "discovery",
+      "env",
+      "logging",
+      "update",
+      "diagnostics",
+      "browser",
+      "nodeHost",
+      "plugins",
+    ],
     quickLinks: ["nodes", "logs"],
   },
   aiAgents: {
     label: "AI Agents",
-    eyebrow: "Agents · Models · Skills",
-    description:
-      "Curated editing for agent definitions, models, auth-backed providers, skill exposure, and tool access defaults.",
-    focusAreas: ["Agents", "Models", "Skills", "Auth", "Tools"],
-    sections: ["agents", "models", "skills", "auth", "tools"],
+    description: "Schema-backed agent, model, auth, and tool roots from the loaded config.",
+    sections: ["agents", "models", "auth", "acp", "skills", "tools"],
     quickLinks: ["agents", "models", "skills"],
   },
 };
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 function resolveSectionMeta(
   key: string,
@@ -113,84 +114,225 @@ function resolveSectionMeta(
   };
 }
 
-function resolveSubsections(params: {
+function resolvePreviewItems(params: {
   key: string;
   schema: JsonSchema | undefined;
   uiHints: ConfigUiHints;
+  value: unknown;
 }): string[] {
-  const { key, schema, uiHints } = params;
-  if (!schema || schemaType(schema) !== "object" || !schema.properties) {
-    return [];
+  const { key, schema, uiHints, value } = params;
+
+  if (schema && schemaType(schema) === "object" && schema.properties) {
+    return Object.entries(schema.properties)
+      .map(([subKey, node]) => {
+        const hint = hintForPath([key, subKey], uiHints);
+        const label = hint?.label ?? node.title ?? humanize(subKey);
+        const order = hint?.order ?? 50;
+        return { label, order, key: subKey };
+      })
+      .toSorted((a, b) => (a.order !== b.order ? a.order - b.order : a.key.localeCompare(b.key)))
+      .map((entry) => entry.label)
+      .slice(0, 4);
   }
-  return Object.entries(schema.properties)
-    .map(([subKey, node]) => {
-      const hint = hintForPath([key, subKey], uiHints);
-      const label = hint?.label ?? node.title ?? humanize(subKey);
-      const order = hint?.order ?? 50;
-      return { label, order, key: subKey };
-    })
-    .toSorted((a, b) => (a.order !== b.order ? a.order - b.order : a.key.localeCompare(b.key)))
-    .map((entry) => entry.label)
-    .slice(0, 4);
+
+  if (isPlainObject(value)) {
+    return Object.keys(value).sort((a, b) => a.localeCompare(b)).slice(0, 4);
+  }
+
+  return [];
+}
+
+function countConfiguredLeaves(value: unknown): number {
+  if (value == null) {
+    return 0;
+  }
+  if (typeof value === "string") {
+    return value.trim() ? 1 : 0;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return 1;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return 0;
+    }
+    return value.reduce((total, entry) => total + countConfiguredLeaves(entry), 0);
+  }
+  if (isPlainObject(value)) {
+    const entries = Object.values(value);
+    if (entries.length === 0) {
+      return 0;
+    }
+    return entries.reduce((total, entry) => total + countConfiguredLeaves(entry), 0);
+  }
+  return 0;
+}
+
+function resolveStructureLabel(schema: JsonSchema | undefined): string | null {
+  if (!schema) {
+    return null;
+  }
+
+  const type = schemaType(schema);
+  if (type === "object") {
+    const propertyCount = Object.keys(schema.properties ?? {}).length;
+    if (propertyCount > 0) {
+      return `${propertyCount} direct field${propertyCount === 1 ? "" : "s"}`;
+    }
+    if (schema.additionalProperties) {
+      return "Dynamic keys";
+    }
+    return "Object section";
+  }
+
+  if (type === "array") {
+    return "List section";
+  }
+
+  if (!type) {
+    return null;
+  }
+
+  return `${humanize(type)} section`;
+}
+
+function resolveValueStatus(value: unknown): { label: string; tone: "pill--ok" | "" } {
+  if (value == null) {
+    return { label: "No current values", tone: "" };
+  }
+
+  if (typeof value === "string") {
+    return value.trim()
+      ? { label: "Value present in config", tone: "pill--ok" }
+      : { label: "No current values", tone: "" };
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return { label: "Value present in config", tone: "pill--ok" };
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0
+      ? { label: `${value.length} item${value.length === 1 ? "" : "s"} in config`, tone: "pill--ok" }
+      : { label: "No current values", tone: "" };
+  }
+
+  if (isPlainObject(value)) {
+    const entryCount = Object.keys(value).length;
+    const leafCount = countConfiguredLeaves(value);
+    if (entryCount === 0 || leafCount === 0) {
+      return { label: "No current values", tone: "" };
+    }
+    if (entryCount === leafCount) {
+      return {
+        label: `${leafCount} configured field${leafCount === 1 ? "" : "s"}`,
+        tone: "pill--ok",
+      };
+    }
+    return {
+      label: `${entryCount} entries · ${leafCount} values set`,
+      tone: "pill--ok",
+    };
+  }
+
+  return { label: "Value present in config", tone: "pill--ok" };
 }
 
 function buildSectionSummaries(params: {
   sectionKeys: string[];
   schema: JsonSchema | null;
   uiHints: ConfigUiHints;
-}): { available: CuratedSectionSummary[]; missing: string[] } {
-  const { sectionKeys, schema, uiHints } = params;
+  formValue: Record<string, unknown> | null;
+}): CuratedSectionSummary[] {
+  const { sectionKeys, schema, uiHints, formValue } = params;
   if (!schema || schemaType(schema) !== "object") {
-    return { available: [], missing: [...sectionKeys] };
+    return [];
   }
 
   const properties = schema.properties ?? {};
   const available: CuratedSectionSummary[] = [];
-  const missing: string[] = [];
 
   for (const key of sectionKeys) {
     const sectionSchema = properties[key];
     if (!sectionSchema) {
-      missing.push(key);
       continue;
     }
+
     const meta = resolveSectionMeta(key, sectionSchema);
+    const valueStatus = resolveValueStatus(formValue?.[key]);
     available.push({
       key,
       label: meta.label,
       description: meta.description,
-      subsections: resolveSubsections({ key, schema: sectionSchema, uiHints }),
+      previewItems: resolvePreviewItems({
+        key,
+        schema: sectionSchema,
+        uiHints,
+        value: formValue?.[key],
+      }),
+      structureLabel: resolveStructureLabel(sectionSchema),
+      valueLabel: valueStatus.label,
+      valueTone: valueStatus.tone,
     });
   }
 
-  return { available, missing };
+  return available;
+}
+
+function renderStatusPill(label: string, className = "") {
+  return html`<span class=${["pill", "pill--sm", className].filter(Boolean).join(" ")}>${label}</span>`;
 }
 
 export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
   const definition = CURATED_PAGE_DEFINITIONS[props.page];
   const analysis = analyzeConfigSchema(props.schema);
-  const { available, missing } = buildSectionSummaries({
+  const available = buildSectionSummaries({
     sectionKeys: definition.sections,
     schema: analysis.schema,
     uiHints: props.uiHints,
+    formValue: props.formValue,
   });
   const hasConfig = Boolean(props.formValue);
   const showLoader = props.schemaLoading || (props.loading && !hasConfig);
   const canSave = props.connected && props.dirty && !props.loading && !props.saving && hasConfig;
   const canApply = props.connected && props.dirty && !props.loading && !props.applying && hasConfig;
+  const sectionCountLabel = available.length === 1 ? "1 schema-backed root" : `${available.length} schema-backed roots`;
+  const rootPreview = available.slice(0, 6);
+  const extraRootCount = Math.max(0, available.length - rootPreview.length);
 
   return html`
     <section class="settings-hub">
       <div class="settings-hub__hero card">
         <div class="settings-hub__hero-copy">
-          <span class="settings-hub__eyebrow">${definition.eyebrow}</span>
+          <span class="settings-hub__eyebrow">
+            ${
+              props.schemaLoading
+                ? "Schema loading"
+                : analysis.schema
+                  ? sectionCountLabel
+                  : "Schema unavailable"
+            }
+          </span>
           <h2 class="settings-hub__title">${definition.label}</h2>
           <p class="settings-hub__description">${definition.description}</p>
-          <div class="settings-hub__focus-list">
-            ${definition.focusAreas.map(
-              (focus) => html`<span class="settings-hub__focus-pill">${focus}</span>`,
-            )}
-          </div>
+          ${
+            rootPreview.length > 0
+              ? html`
+                  <div class="settings-hub__focus-list">
+                    ${rootPreview.map(
+                      (section) => html`<span class="settings-hub__focus-pill">${section.label}</span>`,
+                    )}
+                    ${
+                      extraRootCount > 0
+                        ? html`
+                            <span class="settings-hub__focus-pill">+${extraRootCount} more</span>
+                          `
+                        : nothing
+                    }
+                  </div>
+                `
+              : nothing
+          }
         </div>
         <div class="settings-hub__hero-actions">
           ${definition.quickLinks.map(
@@ -207,14 +349,14 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
 
       <div class="settings-hub__toolbar card">
         <div class="settings-hub__toolbar-status">
-          <span class="pill ${props.dirty ? "danger" : ""}">
-            ${props.dirty ? "Unsaved config changes" : "Loaded config is in sync"}
-          </span>
-          ${
-            !props.connected
-              ? html`<span class="pill">Disconnected</span>`
-              : html`<span class="pill">Live editing ready</span>`
-          }
+          ${renderStatusPill(props.dirty ? "Unsaved changes" : "No local edits", props.dirty ? "pill--danger" : "")}
+          ${renderStatusPill(hasConfig ? "Config loaded" : "Config unavailable", hasConfig ? "pill--ok" : "")}
+          ${renderStatusPill(
+            props.schemaLoading ? "Schema loading" : analysis.schema ? "Schema loaded" : "Schema unavailable",
+            props.schemaLoading ? "" : analysis.schema ? "pill--ok" : "",
+          )}
+          ${renderStatusPill(props.connected ? "Connected" : "Disconnected", props.connected ? "pill--ok" : "pill--danger")}
+          ${props.loading && hasConfig ? renderStatusPill("Refreshing values") : nothing}
         </div>
         <div class="settings-hub__toolbar-actions">
           <button class="btn btn--sm" ?disabled=${props.loading || props.schemaLoading} @click=${props.onReload}>
@@ -238,19 +380,10 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
       }
 
       ${
-        missing.length > 0
-          ? html`<div class="callout info">
-              Some curated sections are not present in this gateway schema yet:
-              ${missing.map((key, index) => `${index === 0 ? "" : ", "}${resolveSectionMeta(key).label}`)}.
-            </div>`
-          : nothing
-      }
-
-      ${
         showLoader
           ? renderLoadingState({
               label: `Loading ${definition.label.toLowerCase()}`,
-              detail: "Preparing the curated settings surface…",
+              detail: "Fetching schema-backed sections and current config values…",
             })
           : nothing
       }
@@ -266,7 +399,8 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
       ${
         !showLoader && analysis.schema && available.length === 0
           ? html`<div class="callout warning">
-              No matching curated sections are available for this gateway schema yet.
+              No schema-backed roots for this page are present in the current gateway schema. Open Full
+              Config to inspect the full root set.
             </div>`
           : nothing
       }
@@ -282,19 +416,29 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
                         <span class="settings-hub__summary-title">${section.label}</span>
                         <span class="settings-hub__summary-key">${section.key}</span>
                       </div>
-                      <p class="settings-hub__summary-description">${section.description}</p>
+                      <div class="settings-hub__summary-meta">
+                        ${
+                          section.structureLabel
+                            ? html`<span class="settings-hub__summary-chip">${section.structureLabel}</span>`
+                            : nothing
+                        }
+                        ${renderStatusPill(section.valueLabel, section.valueTone)}
+                      </div>
                       ${
-                        section.subsections.length > 0
+                        section.description
+                          ? html`<p class="settings-hub__summary-description">${section.description}</p>`
+                          : nothing
+                      }
+                      ${
+                        section.previewItems.length > 0
                           ? html`
                               <div class="settings-hub__summary-subsections">
-                                ${section.subsections.map(
-                                  (subsection) => html`
-                                    <span class="settings-hub__summary-chip">${subsection}</span>
-                                  `,
+                                ${section.previewItems.map(
+                                  (item) => html`<span class="settings-hub__summary-chip">${item}</span>`,
                                 )}
                               </div>
                             `
-                          : html`<div class="settings-hub__summary-empty">Top-level section scaffold</div>`
+                          : nothing
                       }
                     </article>
                   `,
