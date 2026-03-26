@@ -1750,6 +1750,10 @@
   flex-wrap: wrap;
 }
 
+.settings-hub__toolbar-status:empty {
+  display: none;
+}
+
 .settings-hub__summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

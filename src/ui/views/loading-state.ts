@@ -19,8 +19,7 @@ export function renderLoadingState(props: LoadingStateProps) {
   return html`
     <div class=${className} role="status" aria-live="polite">
       <div class="loading-state__spinner" aria-hidden="true">
-        <span class="loading-state__ring"></span>
-        <span class="loading-state__dot"></span>
+        <div class="loading-state__spinner-core"></div>
       </div>
       <div class="loading-state__copy">
         <span class="loading-state__label">${props.label}</span>

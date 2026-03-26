@@ -52,43 +52,32 @@ type CuratedSectionSummary = {
 const CURATED_PAGE_DEFINITIONS: Record<CuratedConfigPageId, CuratedConfigPageDefinition> = {
   communications: {
     label: "Communications",
-    description: "Schema-backed messaging, delivery, and voice roots from the loaded config.",
-    sections: ["channels", "messages", "broadcast", "audio", "media", "talk"],
+    description: "",
+    sections: ["channels", "messages", "broadcast", "talk", "audio"],
     quickLinks: ["channels"],
   },
   appearance: {
     label: "Appearance",
-    description: "Schema-backed interface and presentation roots from the loaded config.",
-    sections: ["ui", "bindings", "canvasHost"],
+    description: "",
+    sections: ["__appearance__", "ui", "wizard"],
     quickLinks: [],
   },
   automation: {
     label: "Automation",
-    description: "Schema-backed scheduling, commands, and workflow roots from the loaded config.",
-    sections: ["cron", "commands", "hooks"],
+    description: "",
+    sections: ["commands", "hooks", "bindings", "cron", "approvals", "plugins"],
     quickLinks: ["cron"],
   },
   infrastructure: {
     label: "Infrastructure",
-    description: "Schema-backed gateway, runtime, and host-related roots from the loaded config.",
-    sections: [
-      "gateway",
-      "web",
-      "discovery",
-      "env",
-      "logging",
-      "update",
-      "diagnostics",
-      "browser",
-      "nodeHost",
-      "plugins",
-    ],
+    description: "",
+    sections: ["gateway", "web", "browser", "nodeHost", "canvasHost", "discovery", "media", "acp", "mcp"],
     quickLinks: ["nodes", "logs"],
   },
   aiAgents: {
-    label: "AI Agents",
-    description: "Schema-backed agent, model, auth, and tool roots from the loaded config.",
-    sections: ["agents", "models", "auth", "acp", "skills", "tools"],
+    label: "AI & Agents",
+    description: "",
+    sections: ["agents", "models", "skills", "tools", "memory", "session"],
     quickLinks: ["agents", "models", "skills"],
   },
 };
@@ -296,7 +285,6 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
   const showLoader = props.schemaLoading || (props.loading && !hasConfig);
   const canSave = props.connected && props.dirty && !props.loading && !props.saving && hasConfig;
   const canApply = props.connected && props.dirty && !props.loading && !props.applying && hasConfig;
-  const sectionCountLabel = available.length === 1 ? "1 schema-backed root" : `${available.length} schema-backed roots`;
   const rootPreview = available.slice(0, 6);
   const extraRootCount = Math.max(0, available.length - rootPreview.length);
 
@@ -304,23 +292,18 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
     <section class="settings-hub">
       <div class="settings-hub__hero card">
         <div class="settings-hub__hero-copy">
-          <span class="settings-hub__eyebrow">
-            ${
-              props.schemaLoading
-                ? "Schema loading"
-                : analysis.schema
-                  ? sectionCountLabel
-                  : "Schema unavailable"
-            }
-          </span>
           <h2 class="settings-hub__title">${definition.label}</h2>
-          <p class="settings-hub__description">${definition.description}</p>
+          ${
+            definition.description
+              ? html`<p class="settings-hub__description">${definition.description}</p>`
+              : nothing
+          }
           ${
             rootPreview.length > 0
               ? html`
                   <div class="settings-hub__focus-list">
                     ${rootPreview.map(
-                      (section) => html`<span class="settings-hub__focus-pill">${section.label}</span>`,
+                      (section) => html`<span class="settings-hub__focus-pill">${section.key}</span>`,
                     )}
                     ${
                       extraRootCount > 0
@@ -349,14 +332,10 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
 
       <div class="settings-hub__toolbar card">
         <div class="settings-hub__toolbar-status">
-          ${renderStatusPill(props.dirty ? "Unsaved changes" : "No local edits", props.dirty ? "pill--danger" : "")}
-          ${renderStatusPill(hasConfig ? "Config loaded" : "Config unavailable", hasConfig ? "pill--ok" : "")}
-          ${renderStatusPill(
-            props.schemaLoading ? "Schema loading" : analysis.schema ? "Schema loaded" : "Schema unavailable",
-            props.schemaLoading ? "" : analysis.schema ? "pill--ok" : "",
-          )}
-          ${renderStatusPill(props.connected ? "Connected" : "Disconnected", props.connected ? "pill--ok" : "pill--danger")}
+          ${props.dirty ? renderStatusPill("Unsaved changes", "pill--danger") : nothing}
           ${props.loading && hasConfig ? renderStatusPill("Refreshing values") : nothing}
+          ${props.saving ? renderStatusPill("Saving", "pill--ok") : nothing}
+          ${props.applying ? renderStatusPill("Applying", "pill--ok") : nothing}
         </div>
         <div class="settings-hub__toolbar-actions">
           <button class="btn btn--sm" ?disabled=${props.loading || props.schemaLoading} @click=${props.onReload}>
@@ -382,8 +361,7 @@ export function renderCuratedConfigPage(props: CuratedConfigPageProps) {
       ${
         showLoader
           ? renderLoadingState({
-              label: `Loading ${definition.label.toLowerCase()}`,
-              detail: "Fetching schema-backed sections and current config values…",
+              label: `Loading ${definition.label}`,
             })
           : nothing
       }
