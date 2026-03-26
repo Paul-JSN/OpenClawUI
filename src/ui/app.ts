@@ -19,6 +19,7 @@ import {
   handleSendChat as handleSendChatInternal,
   removeQueuedMessage as removeQueuedMessageInternal,
 } from "./app-chat.ts";
+import { exportChatMarkdown } from "./chat/export.ts";
 import { DEFAULT_CRON_FORM, DEFAULT_LOG_LEVEL_FILTERS } from "./app-defaults.ts";
 import type { EventLogEntry } from "./app-events.ts";
 import { connectGateway as connectGatewayInternal } from "./app-gateway.ts";
@@ -128,6 +129,23 @@ export class OpenClawApp extends LitElement {
       void i18n.setLocale(this.settings.locale);
     }
   }
+
+  onSlashAction = (action: string) => {
+    switch (action) {
+      case "toggle-focus":
+        this.applySettings({
+          ...this.settings,
+          chatFocusMode: !this.settings.chatFocusMode,
+        });
+        break;
+      case "export":
+        exportChatMarkdown(this.chatMessages, this.assistantName);
+        break;
+      default:
+        break;
+    }
+  };
+
   @state() password = "";
   @state() tab: Tab = "chat";
   @state() onboarding = resolveOnboardingMode();
@@ -137,6 +155,9 @@ export class OpenClawApp extends LitElement {
   @state() hello: GatewayHelloOk | null = null;
   @state() lastError: string | null = null;
   @state() lastErrorCode: string | null = null;
+  @state() healthLoading = false;
+  @state() healthResult: import("./types.ts").HealthSummary | null = null;
+  @state() healthError: string | null = null;
   @state() eventLog: EventLogEntry[] = [];
   private eventLogBuffer: EventLogEntry[] = [];
   private toolStreamSyncTimer: number | null = null;
@@ -158,6 +179,9 @@ export class OpenClawApp extends LitElement {
   @state() compactionStatus: CompactionStatus | null = null;
   @state() fallbackStatus: FallbackStatus | null = null;
   @state() chatAvatarUrl: string | null = null;
+  chatModelOverrides: Record<string, import("./types.ts").ChatModelOverride | null> = {};
+  chatModelsLoading = false;
+  chatModelCatalog: import("./types.ts").ModelCatalogEntry[] = [];
   @state() chatThinkingLevel: string | null = null;
   @state() chatQueue: ChatQueueItem[] = [];
   @state() chatAttachments: ChatAttachment[] = [];
@@ -401,6 +425,8 @@ export class OpenClawApp extends LitElement {
   @state() cronBusy = false;
 
   @state() updateAvailable: import("./types.js").UpdateAvailable | null = null;
+  @state() loginShowGatewayToken = false;
+  @state() loginShowGatewayPassword = false;
   @state() paletteOpen = false;
   @state() paletteQuery = "";
   @state() paletteActiveIndex = 0;

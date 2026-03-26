@@ -120,6 +120,8 @@ export function renderMessageGroup(
     assistantAvatar?: string | null;
     basePath?: string;
     contextWindow?: number | null;
+    pinned?: boolean;
+    onTogglePin?: () => void;
     onDelete?: () => void;
   },
 ) {
@@ -176,6 +178,20 @@ export function renderMessageGroup(
           <span class="chat-sender-name">${who}</span>
           <span class="chat-group-timestamp">${timestamp}</span>
           ${renderMessageMeta(meta)}
+          ${
+            opts.onTogglePin
+              ? html`
+                  <button
+                    class="btn btn--xs chat-pin-btn ${opts.pinned ? "chat-pin-btn--active" : ""}"
+                    @click=${opts.onTogglePin}
+                    title=${opts.pinned ? "Unpin message" : "Pin message"}
+                    aria-pressed=${opts.pinned ? "true" : "false"}
+                  >
+                    ${icons.book}
+                  </button>
+                `
+              : nothing
+          }
           ${normalizedRole === "assistant" && isTtsSupported() ? renderTtsButton(group) : nothing}
           ${
             opts.onDelete

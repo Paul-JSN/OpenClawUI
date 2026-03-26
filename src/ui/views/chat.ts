@@ -56,7 +56,7 @@ export type ChatProps = {
   onSessionKeyChange: (next: string) => void;
   thinkingLevel: string | null;
   showThinking: boolean;
-  showToolCalls: boolean;
+  showToolCalls?: boolean;
   loading: boolean;
   sending: boolean;
   canAbort?: boolean;
@@ -64,7 +64,7 @@ export type ChatProps = {
   fallbackStatus?: FallbackIndicatorStatus | null;
   messages: unknown[];
   toolMessages: unknown[];
-  streamSegments: Array<{ text: string; ts: number }>;
+  streamSegments?: Array<{ text: string; ts: number }>;
   stream: string | null;
   streamStartedAt: number | null;
   assistantAvatarUrl?: string | null;
@@ -96,12 +96,12 @@ export type ChatProps = {
   onQueueRemove: (id: string) => void;
   onNewSession: () => void;
   onClearHistory?: () => void;
-  agentsList: {
+  agentsList?: {
     agents: Array<{ id: string; name?: string; identity?: { name?: string; avatarUrl?: string } }>;
     defaultId?: string;
   } | null;
-  currentAgentId: string;
-  onAgentChange: (agentId: string) => void;
+  currentAgentId?: string;
+  onAgentChange?: (agentId: string) => void;
   onNavigateToAgent?: () => void;
   onSessionSelect?: (sessionKey: string) => void;
   onOpenSidebar?: (content: string) => void;
@@ -699,7 +699,7 @@ function renderPinnedSection(
         vs.pinnedExpanded = !vs.pinnedExpanded;
         requestUpdate();
       }}>
-        ${icons.bookmark}
+        ${icons.book}
         ${entries.length} pinned
         <span class="collapse-chevron ${vs.pinnedExpanded ? "" : "collapse-chevron--collapsed"}">${icons.chevronDown}</span>
       </button>
@@ -973,6 +973,7 @@ export function renderChat(props: ChatProps) {
             if (deleted.has(item.key)) {
               return nothing;
             }
+            const pinSourceIndex = item.messages.find((entry) => typeof entry.sourceIndex === "number")?.sourceIndex;
             return renderMessageGroup(item, {
               onOpenSidebar: props.onOpenSidebar,
               showReasoning,
@@ -982,6 +983,14 @@ export function renderChat(props: ChatProps) {
               basePath: props.basePath,
               contextWindow:
                 activeSession?.contextTokens ?? props.sessions?.defaults?.contextTokens ?? null,
+              pinned: typeof pinSourceIndex === "number" ? pinned.has(pinSourceIndex) : false,
+              onTogglePin:
+                typeof pinSourceIndex === "number"
+                  ? () => {
+                      pinned.toggle(pinSourceIndex);
+                      requestUpdate();
+                    }
+                  : undefined,
               onDelete: () => {
                 deleted.delete(item.key);
                 requestUpdate();
@@ -1407,12 +1416,12 @@ function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
         key: `group:${role}:${item.key}`,
         role,
         senderLabel,
-        messages: [{ message: item.message, key: item.key }],
+        messages: [{ message: item.message, key: item.key, sourceIndex: item.sourceIndex }],
         timestamp,
         isStreaming: false,
       };
     } else {
-      currentGroup.messages.push({ message: item.message, key: item.key });
+      currentGroup.messages.push({ message: item.message, key: item.key, sourceIndex: item.sourceIndex });
     }
   }
 
@@ -1424,6 +1433,7 @@ function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
 
 function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
   const items: ChatItem[] = [];
+  const showToolCalls = props.showToolCalls ?? true;
   const history = Array.isArray(props.messages) ? props.messages : [];
   const tools = Array.isArray(props.toolMessages) ? props.toolMessages : [];
   const historyStart = Math.max(0, history.length - CHAT_HISTORY_RENDER_LIMIT);
@@ -1456,7 +1466,7 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
       continue;
     }
 
-    if (!props.showToolCalls && normalized.role.toLowerCase() === "toolresult") {
+    if (!showToolCalls && normalized.role.toLowerCase() === "toolresult") {
       continue;
     }
 
@@ -1469,6 +1479,7 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
       kind: "message",
       key: messageKey(msg, i),
       message: msg,
+      sourceIndex: i,
     });
   }
   // Interleave stream segments and tool cards in order. Each segment
@@ -1485,7 +1496,7 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
         startedAt: segments[i].ts,
       });
     }
-    if (i < tools.length && props.showToolCalls) {
+    if (i < tools.length && showToolCalls) {
       items.push({
         kind: "message",
         key: messageKey(tools[i], i + history.length),
