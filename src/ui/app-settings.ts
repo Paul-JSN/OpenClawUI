@@ -23,6 +23,7 @@ import {
 import { loadDebug } from "./controllers/debug.ts";
 import { loadDevices } from "./controllers/devices.ts";
 import { loadExecApprovals } from "./controllers/exec-approvals.ts";
+import { loadHealthState } from "./controllers/health.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import { loadModels } from "./controllers/models.ts";
 import { loadNodes } from "./controllers/nodes.ts";
@@ -442,13 +443,18 @@ export function syncUrlWithSessionKey(host: SettingsHost, sessionKey: string, re
 }
 
 export async function loadOverview(host: SettingsHost) {
+  const overviewHost = host as unknown as OpenClawApp;
   await Promise.all([
-    loadChannels(host as unknown as OpenClawApp, false),
-    loadPresence(host as unknown as OpenClawApp),
-    loadSessions(host as unknown as OpenClawApp),
-    loadOverviewUsage(host as unknown as OpenClawApp),
-    loadCronStatus(host as unknown as OpenClawApp),
-    loadDebug(host as unknown as OpenClawApp),
+    loadChannels(overviewHost, false),
+    loadPresence(overviewHost),
+    loadSessions(overviewHost),
+    loadOverviewUsage(overviewHost),
+    loadCronStatus(overviewHost),
+    loadCronJobs(overviewHost),
+    loadSkills(overviewHost),
+    loadHealthState(overviewHost as unknown as Parameters<typeof loadHealthState>[0]),
+    loadLogs(overviewHost as unknown as Parameters<typeof loadLogs>[0], { reset: true, quiet: true }),
+    loadDebug(overviewHost),
   ]);
 }
 

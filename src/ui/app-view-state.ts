@@ -60,6 +60,9 @@ export type AppViewState = {
   hello: GatewayHelloOk | null;
   lastError: string | null;
   lastErrorCode: string | null;
+  healthLoading: boolean;
+  healthResult: import("./types.ts").HealthSummary | null;
+  healthError: string | null;
   eventLog: EventLogEntry[];
   assistantName: string;
   assistantAvatar: string | null;
@@ -77,6 +80,9 @@ export type AppViewState = {
   compactionStatus: CompactionStatus | null;
   fallbackStatus: FallbackStatus | null;
   chatAvatarUrl: string | null;
+  chatModelOverrides: Record<string, import("./types.ts").ChatModelOverride | null>;
+  chatModelsLoading: boolean;
+  chatModelCatalog: import("./types.ts").ModelCatalogEntry[];
   chatThinkingLevel: string | null;
   chatQueue: ChatQueueItem[];
   chatManualRefreshInFlight: boolean;
@@ -321,6 +327,8 @@ export type AppViewState = {
   logsMaxBytes: number;
   logsAtBottom: boolean;
   updateAvailable: import("./types.js").UpdateAvailable | null;
+  loginShowGatewayToken: boolean;
+  loginShowGatewayPassword: boolean;
   paletteOpen: boolean;
   paletteQuery: string;
   paletteActiveIndex: number;

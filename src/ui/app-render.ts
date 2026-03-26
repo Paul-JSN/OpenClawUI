@@ -83,6 +83,7 @@ import { renderInstances } from "./views/instances.ts";
 import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
+import { renderLoginGate } from "./views/login-gate.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
 import { renderModels } from "./views/models.ts";
@@ -357,6 +358,41 @@ export function renderApp(state: AppViewState) {
     overviewUsage24hStatus: state.overviewUsageSnapshot24hStatus,
     rangeKey: `overview|${state.overviewRange}`,
   });
+  const overviewLogLines = state.logsEntries.map((entry) => entry.raw);
+  const overviewAttentionItems = [
+    ...(!state.healthError && state.healthResult && state.healthResult.ok === false
+      ? [{
+          severity: "error" as const,
+          icon: "radio",
+          title: "Gateway health degraded",
+          description: state.healthResult.summary || "The gateway reported an unhealthy status.",
+        }]
+      : []),
+    ...(state.healthError
+      ? [{
+          severity: "warning" as const,
+          icon: "radio",
+          title: "Health check unavailable",
+          description: state.healthError,
+        }]
+      : []),
+    ...((state.cronJobs ?? []).filter((job) => job.state?.lastStatus === "error").length > 0
+      ? [{
+          severity: "warning" as const,
+          icon: "wrench",
+          title: "Cron jobs need attention",
+          description: `${state.cronJobs.filter((job) => job.state?.lastStatus === "error").length} job(s) last ran with an error.`,
+        }]
+      : []),
+    ...((state.skillsReport?.skills ?? []).filter((skill) => skill.blockedByAllowlist).length > 0
+      ? [{
+          severity: "info" as const,
+          icon: "brain",
+          title: "Some skills are blocked",
+          description: `${state.skillsReport?.skills.filter((skill) => skill.blockedByAllowlist).length ?? 0} skill(s) are currently blocked by the allowlist.`,
+        }]
+      : []),
+  ];
   const chatDisabledReason = state.connected ? null : t("chat.disconnected");
   const isChat = state.tab === "chat";
   const isAnalyticsTab = state.tab === "overview" || state.tab === "usage";
@@ -601,38 +637,51 @@ export function renderApp(state: AppViewState) {
 
         ${
           state.tab === "overview"
-            ? renderOverview({
-                connected: state.connected,
-                hello: state.hello,
-                settings: state.settings,
-                password: state.password,
-                lastError: state.lastError,
-                lastErrorCode: state.lastErrorCode,
-                presenceCount,
-                sessionsCount,
-                cronEnabled: state.cronStatus?.enabled ?? null,
-                cronNext,
-                lastChannelsRefresh: state.channelsLastSuccess,
-                usageLoading: state.overviewUsageLoading,
-                usageError: state.overviewUsageError,
-                usageAnalyticsView: overviewAnalyticsView,
-                displayTimeZone: state.usageDisplayTimeZone,
-                onSettingsChange: (next) => state.applySettings(next),
-                onPasswordChange: (next) => (state.password = next),
-                onSessionKeyChange: (next) => {
-                  state.sessionKey = next;
-                  state.chatMessage = "";
-                  state.resetToolStream();
-                  state.applySettings({
-                    ...state.settings,
-                    sessionKey: next,
-                    lastActiveSessionKey: next,
-                  });
-                  void state.loadAssistantIdentity();
-                },
-                onConnect: () => state.connect(),
-                onRefresh: () => state.loadOverview(),
-              })
+            ? html`
+                ${!state.connected ? renderLoginGate(state) : nothing}
+                ${renderOverview({
+                  connected: state.connected,
+                  hello: state.hello,
+                  settings: state.settings,
+                  password: state.password,
+                  lastError: state.lastError,
+                  lastErrorCode: state.lastErrorCode,
+                  presenceCount,
+                  sessionsCount,
+                  cronEnabled: state.cronStatus?.enabled ?? null,
+                  cronNext,
+                  lastChannelsRefresh: state.channelsLastSuccess,
+                  usageLoading: state.overviewUsageLoading,
+                  usageError: state.overviewUsageError,
+                  usageResult: state.overviewUsageResult,
+                  skillsReport: state.skillsReport,
+                  sessionsResult: state.sessionsResult,
+                  cronJobs: state.cronJobs,
+                  cronStatus: state.cronStatus,
+                  attentionItems: overviewAttentionItems,
+                  eventLog: state.eventLog,
+                  overviewLogLines,
+                  usageAnalyticsView: overviewAnalyticsView,
+                  displayTimeZone: state.usageDisplayTimeZone,
+                  onSettingsChange: (next) => state.applySettings(next),
+                  onPasswordChange: (next) => (state.password = next),
+                  onSessionKeyChange: (next) => {
+                    state.sessionKey = next;
+                    state.chatMessage = "";
+                    state.resetToolStream();
+                    state.applySettings({
+                      ...state.settings,
+                      sessionKey: next,
+                      lastActiveSessionKey: next,
+                    });
+                    void state.loadAssistantIdentity();
+                  },
+                  onConnect: () => state.connect(),
+                  onRefresh: () => state.loadOverview(),
+                  onNavigate: (tab) => state.setTab(tab as Tab),
+                  onRefreshLogs: () => loadLogs(state, { reset: true, quiet: true }),
+                })}
+              `
             : nothing
         }
 

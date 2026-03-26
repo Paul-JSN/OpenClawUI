@@ -8,7 +8,12 @@ import type {
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "../controllers/exec-approvals.ts";
 import { formatRelativeTimestamp, formatList } from "../format.ts";
 import { renderExecApprovals, resolveExecApprovalsState } from "./nodes-exec-approvals.ts";
-import { resolveConfigAgents, resolveNodeTargets, type NodeTargetOption } from "./nodes-shared.ts";
+import {
+  resolveConfigAgents,
+  resolveNodeTargets,
+  type NodeTargetOption,
+  type ConfigAgentOption,
+} from "./nodes-shared.ts";
 export type NodesProps = {
   loading: boolean;
   nodes: Array<Record<string, unknown>>;
@@ -128,8 +133,7 @@ function renderDevices(props: NodesProps) {
 function renderPendingDevice(req: PendingDevice, props: NodesProps) {
   const name = req.displayName?.trim() || req.deviceId;
   const age = typeof req.ts === "number" ? formatRelativeTimestamp(req.ts) : "n/a";
-  const roleValue = req.role?.trim() || formatList(req.roles);
-  const scopesValue = formatList(req.scopes);
+  const role = req.role?.trim() ? `role: ${req.role}` : "role: -";
   const repair = req.isRepair ? " · repair" : "";
   const ip = req.remoteIp ? ` · ${req.remoteIp}` : "";
   return html`
@@ -138,7 +142,7 @@ function renderPendingDevice(req: PendingDevice, props: NodesProps) {
         <div class="list-title">${name}</div>
         <div class="list-sub">${req.deviceId}${ip}</div>
         <div class="muted" style="margin-top: 6px;">
-          role: ${roleValue} · scopes: ${scopesValue} · requested ${age}${repair}
+          ${role} · requested ${age}${repair}
         </div>
       </div>
       <div class="list-meta">
@@ -219,13 +223,16 @@ function renderTokenRow(deviceId: string, token: DeviceTokenSummary, props: Node
 
 type BindingAgent = {
   id: string;
-  name: string | undefined;
+  name?: string;
   index: number;
   isDefault: boolean;
-  binding: string | null;
+  binding?: string | null;
 };
 
-type BindingNode = NodeTargetOption;
+type BindingNode = {
+  id: string;
+  label: string;
+};
 
 type BindingState = {
   ready: boolean;
@@ -245,7 +252,7 @@ type BindingState = {
 
 function resolveBindingsState(props: NodesProps): BindingState {
   const config = props.configForm;
-  const nodes = resolveExecNodes(props.nodes);
+  const nodes = resolveNodeTargets(props.nodes, ["system.run"]);
   const { defaultBinding, agents } = resolveAgentBindings(config);
   const ready = Boolean(config);
   const disabled = props.configSaving || props.configFormMode === "raw";
@@ -406,10 +413,6 @@ function renderAgentBinding(agent: BindingAgent, state: BindingState) {
   `;
 }
 
-function resolveExecNodes(nodes: Array<Record<string, unknown>>): BindingNode[] {
-  return resolveNodeTargets(nodes, ["system.run"]);
-}
-
 function resolveAgentBindings(config: Record<string, unknown> | null): {
   defaultBinding?: string | null;
   agents: BindingAgent[];
@@ -429,23 +432,24 @@ function resolveAgentBindings(config: Record<string, unknown> | null): {
   const defaultBinding =
     typeof exec.node === "string" && exec.node.trim() ? exec.node.trim() : null;
 
-  const agentsNode = (config.agents ?? {}) as Record<string, unknown>;
-  if (!Array.isArray(agentsNode.list) || agentsNode.list.length === 0) {
+  const configAgents = resolveConfigAgents(config);
+  if (configAgents.length === 0) {
     return { defaultBinding, agents: [fallbackAgent] };
   }
 
-  const agents = resolveConfigAgents(config).map((entry) => {
-    const toolsEntry = (entry.record.tools ?? {}) as Record<string, unknown>;
+  const agents: BindingAgent[] = [];
+  configAgents.forEach(({ record, id, name, isDefault, index }) => {
+    const toolsEntry = (record.tools ?? {}) as Record<string, unknown>;
     const execEntry = (toolsEntry.exec ?? {}) as Record<string, unknown>;
     const binding =
       typeof execEntry.node === "string" && execEntry.node.trim() ? execEntry.node.trim() : null;
-    return {
-      id: entry.id,
-      name: entry.name,
-      index: entry.index,
-      isDefault: entry.isDefault,
+    agents.push({
+      id,
+      name: name || undefined,
+      index,
+      isDefault,
       binding,
-    };
+    });
   });
 
   if (agents.length === 0) {
