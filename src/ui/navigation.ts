@@ -60,13 +60,15 @@ const TAB_PATHS: Record<Tab, string> = {
   appearance: "/appearance",
   automation: "/automation",
   infrastructure: "/infrastructure",
-  aiAgents: "/ai-agents",
+  aiAgents: "/aiAgents",
   config: "/config",
   debug: "/debug",
   logs: "/logs",
 };
 
-const PATH_TO_TAB = new Map(Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as Tab]));
+const PATH_TO_TAB = new Map(
+  Object.entries(TAB_PATHS).map(([tab, path]) => [path.toLowerCase(), tab as Tab]),
+);
 
 export function normalizeBasePath(basePath: string): string {
   if (!basePath) {
@@ -167,20 +169,20 @@ export function iconForTab(tab: Tab): IconName {
       return "loader";
     case "models":
       return "brain";
+    case "communications":
+      return "messageSquare";
+    case "appearance":
+      return "circle";
+    case "automation":
+      return "zap";
+    case "infrastructure":
+      return "globe";
+    case "aiAgents":
+      return "brain";
     case "skills":
       return "zap";
     case "nodes":
       return "monitor";
-    case "communications":
-      return "messageSquare";
-    case "appearance":
-      return "image";
-    case "automation":
-      return "wrench";
-    case "infrastructure":
-      return "monitor";
-    case "aiAgents":
-      return "brain";
     case "config":
       return "settings";
     case "debug":

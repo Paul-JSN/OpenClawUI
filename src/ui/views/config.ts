@@ -3,6 +3,7 @@ import type { ConfigUiHints } from "../types.ts";
 import { hintForPath, humanize, schemaType, type JsonSchema } from "./config-form.shared.ts";
 import { analyzeConfigSchema, renderConfigForm, SECTION_META } from "./config-form.ts";
 import { getTagFilters, replaceTagFilters } from "./config-search.ts";
+import { renderLoadingState } from "./loading-state.ts";
 
 export type ConfigProps = {
   raw: string;
@@ -23,9 +24,6 @@ export type ConfigProps = {
   searchQuery: string;
   activeSection: string | null;
   activeSubsection: string | null;
-  includeSections?: string[];
-  panelTitle?: string;
-  allSectionsLabel?: string;
   onRawChange: (next: string) => void;
   onFormModeChange: (mode: "form" | "raw") => void;
   onFormPatch: (path: Array<string | number>, value: unknown) => void;
@@ -412,18 +410,13 @@ export function renderConfig(props: ConfigProps) {
 
   // Get available sections from schema
   const schemaProps = analysis.schema?.properties ?? {};
-  const includeSections = new Set(props.includeSections ?? []);
-  const shouldIncludeSection = (key: string) =>
-    includeSections.size === 0 || includeSections.has(key);
-  const availableSections = SECTIONS.filter((section) =>
-    shouldIncludeSection(section.key) && section.key in schemaProps,
-  );
+  const availableSections = SECTIONS.filter((s) => s.key in schemaProps);
 
   // Add any sections in schema but not in our list
   const knownKeys = new Set(SECTIONS.map((s) => s.key));
   const extraSections = Object.keys(schemaProps)
-    .filter((key) => shouldIncludeSection(key) && !knownKeys.has(key))
-    .map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) }));
+    .filter((k) => !knownKeys.has(k))
+    .map((k) => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1) }));
 
   const allSections = [...availableSections, ...extraSections];
 
@@ -477,7 +470,7 @@ export function renderConfig(props: ConfigProps) {
       <!-- Sidebar -->
       <aside class="config-sidebar">
         <div class="config-sidebar__header">
-          <div class="config-sidebar__title">${props.panelTitle ?? "Settings"}</div>
+          <div class="config-sidebar__title">Settings</div>
           <span
             class="pill pill--sm ${
               validity === "valid" ? "pill--ok" : validity === "invalid" ? "pill--danger" : ""
@@ -582,7 +575,7 @@ export function renderConfig(props: ConfigProps) {
             @click=${() => props.onSectionChange(null)}
           >
             <span class="config-nav__icon">${sidebarIcons.all}</span>
-            <span class="config-nav__label">${props.allSectionsLabel ?? "All Settings"}</span>
+            <span class="config-nav__label">All Settings</span>
           </button>
           ${allSections.map(
             (section) => html`
@@ -774,8 +767,10 @@ export function renderConfig(props: ConfigProps) {
                   props.schemaLoading
                     ? html`
                         <div class="config-loading">
-                          <div class="config-loading__spinner"></div>
-                          <span>Loading schema…</span>
+                          ${renderLoadingState({
+                            label: "Loading configuration schema",
+                            detail: "Preparing the editable settings form…",
+                          })}
                         </div>
                       `
                     : renderConfigForm({
@@ -788,7 +783,6 @@ export function renderConfig(props: ConfigProps) {
                         searchQuery: props.searchQuery,
                         activeSection: props.activeSection,
                         activeSubsection: effectiveSubsection,
-                        includeSections: props.includeSections,
                       })
                 }
                 ${

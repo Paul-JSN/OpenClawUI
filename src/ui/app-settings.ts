@@ -23,7 +23,6 @@ import {
 import { loadDebug } from "./controllers/debug.ts";
 import { loadDevices } from "./controllers/devices.ts";
 import { loadExecApprovals } from "./controllers/exec-approvals.ts";
-import { loadHealthState } from "./controllers/health.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import { loadModels } from "./controllers/models.ts";
 import { loadNodes } from "./controllers/nodes.ts";
@@ -66,6 +65,16 @@ type SettingsHost = {
   themeMediaHandler: ((event: MediaQueryListEvent) => void) | null;
   pendingGatewayUrl?: string | null;
 };
+
+function isCuratedConfigTab(tab: Tab): boolean {
+  return (
+    tab === "communications" ||
+    tab === "appearance" ||
+    tab === "automation" ||
+    tab === "infrastructure" ||
+    tab === "aiAgents"
+  );
+}
 
 export function applySettings(host: SettingsHost, next: UiSettings) {
   const normalized = {
@@ -260,16 +269,15 @@ export async function refreshActiveTab(host: SettingsHost) {
       !host.chatHasAutoScrolled,
     );
   }
-  if (
-    host.tab === "config" ||
-    host.tab === "communications" ||
-    host.tab === "appearance" ||
-    host.tab === "automation" ||
-    host.tab === "infrastructure" ||
-    host.tab === "aiAgents"
-  ) {
+  if (host.tab === "config") {
     await loadConfigSchema(host as unknown as OpenClawApp);
     await loadConfig(host as unknown as OpenClawApp);
+  }
+  if (isCuratedConfigTab(host.tab)) {
+    await Promise.all([
+      loadConfigSchema(host as unknown as OpenClawApp),
+      loadConfig(host as unknown as OpenClawApp),
+    ]);
   }
   if (host.tab === "debug") {
     await loadDebug(host as unknown as OpenClawApp);
@@ -443,18 +451,13 @@ export function syncUrlWithSessionKey(host: SettingsHost, sessionKey: string, re
 }
 
 export async function loadOverview(host: SettingsHost) {
-  const overviewHost = host as unknown as OpenClawApp;
   await Promise.all([
-    loadChannels(overviewHost, false),
-    loadPresence(overviewHost),
-    loadSessions(overviewHost),
-    loadOverviewUsage(overviewHost),
-    loadCronStatus(overviewHost),
-    loadCronJobs(overviewHost),
-    loadSkills(overviewHost),
-    loadHealthState(overviewHost as unknown as Parameters<typeof loadHealthState>[0]),
-    loadLogs(overviewHost as unknown as Parameters<typeof loadLogs>[0], { reset: true, quiet: true }),
-    loadDebug(overviewHost),
+    loadChannels(host as unknown as OpenClawApp, false),
+    loadPresence(host as unknown as OpenClawApp),
+    loadSessions(host as unknown as OpenClawApp),
+    loadOverviewUsage(host as unknown as OpenClawApp),
+    loadCronStatus(host as unknown as OpenClawApp),
+    loadDebug(host as unknown as OpenClawApp),
   ]);
 }
 

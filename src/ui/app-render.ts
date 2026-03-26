@@ -1,7 +1,6 @@
 ﻿import { html, nothing } from "lit";
 import { parseAgentSessionKey } from "../../../src/routing/session-key.js";
 import { t } from "../i18n/index.ts";
-import "./components/dashboard-header.ts";
 import { refreshChatAvatar } from "./app-chat.ts";
 import { renderChatControls, renderTab, renderThemeToggle } from "./app-render.helpers.ts";
 import type { AppViewState } from "./app-view-state.ts";
@@ -69,21 +68,21 @@ import {
 } from "./controllers/skills.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "./external-link.ts";
 import { icons } from "./icons.ts";
-import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab, type Tab } from "./navigation.ts";
+import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
 import { renderAgents } from "./views/agents.ts";
 import { renderChannels } from "./views/channels.ts";
 import { renderChat } from "./views/chat.ts";
-import { renderCommandPalette } from "./views/command-palette.ts";
+import { renderCuratedConfigPage } from "./views/config-curated.ts";
 import { renderConfig } from "./views/config.ts";
 import { renderCron } from "./views/cron.ts";
 import { renderDebug } from "./views/debug.ts";
 import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
 import { renderInstances } from "./views/instances.ts";
+import { renderLoadingState } from "./views/loading-state.ts";
 import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
-import { renderLoginGate } from "./views/login-gate.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
 import { renderModels } from "./views/models.ts";
@@ -161,7 +160,10 @@ function renderModelsTabLazy(state: AppViewState) {
   ensureModelsTabRenderer(state);
   return html`
     <section class="models-page">
-      <div class="callout">Loading Models UI module…</div>
+      ${renderLoadingState({
+        label: "Loading models workspace",
+        detail: "Hydrating the dedicated Models UI module…",
+      })}
       ${
         modelsTabRendererError
           ? html`<div class="callout warning">Failed to load Models UI module: ${modelsTabRendererError}</div>`
@@ -185,7 +187,10 @@ function renderUsageTabLazy(state: AppViewState) {
   ensureUsageTabRenderer(state);
   return html`
     <section class="react-analytics-page">
-      <div class="callout">Loading usage UI module…</div>
+      ${renderLoadingState({
+        label: "Loading usage analytics",
+        detail: "Hydrating the dedicated Usage UI module…",
+      })}
       ${
         usageTabRendererError
           ? html`<div class="callout warning">Failed to load Usage UI module: ${usageTabRendererError}</div>`
@@ -248,84 +253,27 @@ function stripYear(version: string): string {
   return version.replace(/^\d{4}\./, "");
 }
 
-const COMMUNICATION_SECTION_KEYS = ["channels", "messages", "broadcast", "talk", "audio"] as const;
-const APPEARANCE_SECTION_KEYS = ["__appearance__", "ui", "wizard"] as const;
-const AUTOMATION_SECTION_KEYS = [
-  "commands",
-  "hooks",
-  "bindings",
-  "cron",
-  "approvals",
-  "plugins",
-] as const;
-const INFRASTRUCTURE_SECTION_KEYS = [
-  "gateway",
-  "web",
-  "browser",
-  "nodeHost",
-  "canvasHost",
-  "discovery",
-  "media",
-  "acp",
-  "mcp",
-] as const;
-const AI_AGENTS_SECTION_KEYS = ["agents", "models", "skills", "tools", "memory", "session"] as const;
-
-type ScopedConfigPageOptions = {
-  panelTitle: string;
-  allSectionsLabel: string;
-  includeSections: readonly string[];
-  formMode: "form" | "raw";
-  searchQuery: string;
-  activeSection: string | null;
-  activeSubsection: string | null;
-  onFormModeChange: (mode: "form" | "raw") => void;
-  onSearchChange: (query: string) => void;
-  onSectionChange: (section: string | null) => void;
-  onSubsectionChange: (section: string | null) => void;
-};
-
-function renderScopedConfigPage(state: AppViewState, options: ScopedConfigPageOptions) {
-  const allowedSections = new Set(options.includeSections);
-  const activeSection =
-    options.activeSection && allowedSections.has(options.activeSection)
-      ? options.activeSection
-      : null;
-
-  return renderConfig({
-    raw: state.configRaw,
-    originalRaw: state.configRawOriginal,
-    valid: state.configValid,
-    issues: state.configIssues,
+function renderCuratedSettingsTab(
+  state: AppViewState,
+  page: Parameters<typeof renderCuratedConfigPage>[0]["page"],
+) {
+  return renderCuratedConfigPage({
+    page,
+    connected: state.connected,
     loading: state.configLoading,
+    schemaLoading: state.configSchemaLoading,
     saving: state.configSaving,
     applying: state.configApplying,
-    updating: state.updateRunning,
-    connected: state.connected,
+    dirty: state.configFormDirty,
     schema: state.configSchema,
-    schemaLoading: state.configSchemaLoading,
     uiHints: state.configUiHints,
-    formMode: options.formMode,
     formValue: state.configForm,
-    originalValue: state.configFormOriginal,
-    searchQuery: options.searchQuery,
-    activeSection,
-    activeSubsection: activeSection ? options.activeSubsection : null,
-    includeSections: [...options.includeSections],
-    panelTitle: options.panelTitle,
-    allSectionsLabel: options.allSectionsLabel,
-    onRawChange: (next) => {
-      state.configRaw = next;
-    },
-    onFormModeChange: options.onFormModeChange,
-    onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
-    onSearchChange: options.onSearchChange,
-    onSectionChange: options.onSectionChange,
-    onSubsectionChange: options.onSubsectionChange,
+    onPatch: (path, value) => updateConfigFormValue(state, path, value),
     onReload: () => loadConfig(state),
     onSave: () => saveConfig(state),
     onApply: () => applyConfig(state),
-    onUpdate: () => runUpdate(state),
+    onOpenTab: (tab) => state.setTab(tab),
+    onOpenConfig: () => state.setTab("config"),
   });
 }
 
@@ -358,41 +306,6 @@ export function renderApp(state: AppViewState) {
     overviewUsage24hStatus: state.overviewUsageSnapshot24hStatus,
     rangeKey: `overview|${state.overviewRange}`,
   });
-  const overviewLogLines = state.logsEntries.map((entry) => entry.raw);
-  const overviewAttentionItems = [
-    ...(!state.healthError && state.healthResult && state.healthResult.ok === false
-      ? [{
-          severity: "error" as const,
-          icon: "radio",
-          title: "Gateway health degraded",
-          description: state.healthResult.summary || "The gateway reported an unhealthy status.",
-        }]
-      : []),
-    ...(state.healthError
-      ? [{
-          severity: "warning" as const,
-          icon: "radio",
-          title: "Health check unavailable",
-          description: state.healthError,
-        }]
-      : []),
-    ...((state.cronJobs ?? []).filter((job) => job.state?.lastStatus === "error").length > 0
-      ? [{
-          severity: "warning" as const,
-          icon: "wrench",
-          title: "Cron jobs need attention",
-          description: `${state.cronJobs.filter((job) => job.state?.lastStatus === "error").length} job(s) last ran with an error.`,
-        }]
-      : []),
-    ...((state.skillsReport?.skills ?? []).filter((skill) => skill.blockedByAllowlist).length > 0
-      ? [{
-          severity: "info" as const,
-          icon: "brain",
-          title: "Some skills are blocked",
-          description: `${state.skillsReport?.skills.filter((skill) => skill.blockedByAllowlist).length ?? 0} skill(s) are currently blocked by the allowlist.`,
-        }]
-      : []),
-  ];
   const chatDisabledReason = state.connected ? null : t("chat.disconnected");
   const isChat = state.tab === "chat";
   const isAnalyticsTab = state.tab === "overview" || state.tab === "usage";
@@ -460,55 +373,16 @@ export function renderApp(state: AppViewState) {
       : rawDeliveryToSuggestions;
 
   return html`
-    ${renderCommandPalette({
-      open: state.paletteOpen,
-      query: state.paletteQuery,
-      activeIndex: state.paletteActiveIndex,
-      onToggle: () => {
-        state.paletteOpen = !state.paletteOpen;
-      },
-      onQueryChange: (query) => {
-        state.paletteQuery = query;
-      },
-      onActiveIndexChange: (index) => {
-        state.paletteActiveIndex = index;
-      },
-      onNavigate: (tab) => {
-        state.setTab(tab);
-      },
-      onSlashCommand: (command) => {
-        state.setTab("chat");
-        state.chatMessage = command.endsWith(" ") ? command : `${command} `;
-      },
-    })}
     <div class="shell scanline ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
       <header class="topbar">
         <div class="topbar-left">
-          <dashboard-header
-            .tab=${state.tab}
-            @dashboard-navigate=${(event: CustomEvent<{ tab: Tab }>) => {
-              state.setTab(event.detail?.tab ?? "overview");
-            }}
-          ></dashboard-header>
+          <div class="topbar-title">
+            <span class="topbar-title__main">Control Panel</span>
+            <span class="topbar-title__sep">//</span>
+            <span class="topbar-title__sub">Analytics</span>
+          </div>
         </div>
         <div class="topbar-status">
-          <button
-            type="button"
-            class="topbar-search"
-            @click=${() => {
-              state.paletteOpen = !state.paletteOpen;
-              if (state.paletteOpen) {
-                state.paletteQuery = "";
-                state.paletteActiveIndex = 0;
-              }
-            }}
-            title="Search or jump to… (Ctrl/Cmd+K)"
-            aria-label="Open command palette"
-          >
-            <span class="topbar-search__icon" aria-hidden="true">${icons.search}</span>
-            <span class="topbar-search__label">${t("common.search")}</span>
-            <kbd class="topbar-search__kbd">Ctrl K</kbd>
-          </button>
           <div class="topbar-conn ${state.connected ? "is-online" : "is-offline"}">
             <span class="topbar-conn__dot"></span>
             <span class="topbar-conn__text">${state.connected ? "CONNECTED" : "OFFLINE"}</span>
@@ -637,51 +511,38 @@ export function renderApp(state: AppViewState) {
 
         ${
           state.tab === "overview"
-            ? html`
-                ${!state.connected ? renderLoginGate(state) : nothing}
-                ${renderOverview({
-                  connected: state.connected,
-                  hello: state.hello,
-                  settings: state.settings,
-                  password: state.password,
-                  lastError: state.lastError,
-                  lastErrorCode: state.lastErrorCode,
-                  presenceCount,
-                  sessionsCount,
-                  cronEnabled: state.cronStatus?.enabled ?? null,
-                  cronNext,
-                  lastChannelsRefresh: state.channelsLastSuccess,
-                  usageLoading: state.overviewUsageLoading,
-                  usageError: state.overviewUsageError,
-                  usageResult: state.overviewUsageResult,
-                  skillsReport: state.skillsReport,
-                  sessionsResult: state.sessionsResult,
-                  cronJobs: state.cronJobs,
-                  cronStatus: state.cronStatus,
-                  attentionItems: overviewAttentionItems,
-                  eventLog: state.eventLog,
-                  overviewLogLines,
-                  usageAnalyticsView: overviewAnalyticsView,
-                  displayTimeZone: state.usageDisplayTimeZone,
-                  onSettingsChange: (next) => state.applySettings(next),
-                  onPasswordChange: (next) => (state.password = next),
-                  onSessionKeyChange: (next) => {
-                    state.sessionKey = next;
-                    state.chatMessage = "";
-                    state.resetToolStream();
-                    state.applySettings({
-                      ...state.settings,
-                      sessionKey: next,
-                      lastActiveSessionKey: next,
-                    });
-                    void state.loadAssistantIdentity();
-                  },
-                  onConnect: () => state.connect(),
-                  onRefresh: () => state.loadOverview(),
-                  onNavigate: (tab) => state.setTab(tab as Tab),
-                  onRefreshLogs: () => loadLogs(state, { reset: true, quiet: true }),
-                })}
-              `
+            ? renderOverview({
+                connected: state.connected,
+                hello: state.hello,
+                settings: state.settings,
+                password: state.password,
+                lastError: state.lastError,
+                lastErrorCode: state.lastErrorCode,
+                presenceCount,
+                sessionsCount,
+                cronEnabled: state.cronStatus?.enabled ?? null,
+                cronNext,
+                lastChannelsRefresh: state.channelsLastSuccess,
+                usageLoading: state.overviewUsageLoading,
+                usageError: state.overviewUsageError,
+                usageAnalyticsView: overviewAnalyticsView,
+                displayTimeZone: state.usageDisplayTimeZone,
+                onSettingsChange: (next) => state.applySettings(next),
+                onPasswordChange: (next) => (state.password = next),
+                onSessionKeyChange: (next) => {
+                  state.sessionKey = next;
+                  state.chatMessage = "";
+                  state.resetToolStream();
+                  state.applySettings({
+                    ...state.settings,
+                    sessionKey: next,
+                    lastActiveSessionKey: next,
+                  });
+                  void state.loadAssistantIdentity();
+                },
+                onConnect: () => state.connect(),
+                onRefresh: () => state.loadOverview(),
+              })
             : nothing
         }
 
@@ -812,6 +673,12 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
+
+        ${state.tab === "communications" ? renderCuratedSettingsTab(state, "communications") : nothing}
+        ${state.tab === "appearance" ? renderCuratedSettingsTab(state, "appearance") : nothing}
+        ${state.tab === "automation" ? renderCuratedSettingsTab(state, "automation") : nothing}
+        ${state.tab === "infrastructure" ? renderCuratedSettingsTab(state, "infrastructure") : nothing}
+        ${state.tab === "aiAgents" ? renderCuratedSettingsTab(state, "aiAgents") : nothing}
 
         ${
           state.tab === "cron"
@@ -1425,111 +1292,6 @@ export function renderApp(state: AppViewState) {
                 onSplitRatioChange: (ratio: number) => state.handleSplitRatioChange(ratio),
                 assistantName: state.assistantName,
                 assistantAvatar: state.assistantAvatar,
-              })
-            : nothing
-        }
-
-        ${
-          state.tab === "communications"
-            ? renderScopedConfigPage(state, {
-                panelTitle: titleForTab("communications"),
-                allSectionsLabel: `All ${titleForTab("communications")}`,
-                includeSections: COMMUNICATION_SECTION_KEYS,
-                formMode: state.communicationsFormMode,
-                searchQuery: state.communicationsSearchQuery,
-                activeSection: state.communicationsActiveSection,
-                activeSubsection: state.communicationsActiveSubsection,
-                onFormModeChange: (mode) => (state.communicationsFormMode = mode),
-                onSearchChange: (query) => (state.communicationsSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.communicationsActiveSection = section;
-                  state.communicationsActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.communicationsActiveSubsection = section),
-              })
-            : nothing
-        }
-
-        ${
-          state.tab === "appearance"
-            ? renderScopedConfigPage(state, {
-                panelTitle: titleForTab("appearance"),
-                allSectionsLabel: `All ${titleForTab("appearance")}`,
-                includeSections: APPEARANCE_SECTION_KEYS,
-                formMode: state.appearanceFormMode,
-                searchQuery: state.appearanceSearchQuery,
-                activeSection: state.appearanceActiveSection,
-                activeSubsection: state.appearanceActiveSubsection,
-                onFormModeChange: (mode) => (state.appearanceFormMode = mode),
-                onSearchChange: (query) => (state.appearanceSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.appearanceActiveSection = section;
-                  state.appearanceActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.appearanceActiveSubsection = section),
-              })
-            : nothing
-        }
-
-        ${
-          state.tab === "automation"
-            ? renderScopedConfigPage(state, {
-                panelTitle: titleForTab("automation"),
-                allSectionsLabel: `All ${titleForTab("automation")}`,
-                includeSections: AUTOMATION_SECTION_KEYS,
-                formMode: state.automationFormMode,
-                searchQuery: state.automationSearchQuery,
-                activeSection: state.automationActiveSection,
-                activeSubsection: state.automationActiveSubsection,
-                onFormModeChange: (mode) => (state.automationFormMode = mode),
-                onSearchChange: (query) => (state.automationSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.automationActiveSection = section;
-                  state.automationActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.automationActiveSubsection = section),
-              })
-            : nothing
-        }
-
-        ${
-          state.tab === "infrastructure"
-            ? renderScopedConfigPage(state, {
-                panelTitle: titleForTab("infrastructure"),
-                allSectionsLabel: `All ${titleForTab("infrastructure")}`,
-                includeSections: INFRASTRUCTURE_SECTION_KEYS,
-                formMode: state.infrastructureFormMode,
-                searchQuery: state.infrastructureSearchQuery,
-                activeSection: state.infrastructureActiveSection,
-                activeSubsection: state.infrastructureActiveSubsection,
-                onFormModeChange: (mode) => (state.infrastructureFormMode = mode),
-                onSearchChange: (query) => (state.infrastructureSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.infrastructureActiveSection = section;
-                  state.infrastructureActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.infrastructureActiveSubsection = section),
-              })
-            : nothing
-        }
-
-        ${
-          state.tab === "aiAgents"
-            ? renderScopedConfigPage(state, {
-                panelTitle: titleForTab("aiAgents"),
-                allSectionsLabel: `All ${titleForTab("aiAgents")}`,
-                includeSections: AI_AGENTS_SECTION_KEYS,
-                formMode: state.aiAgentsFormMode,
-                searchQuery: state.aiAgentsSearchQuery,
-                activeSection: state.aiAgentsActiveSection,
-                activeSubsection: state.aiAgentsActiveSubsection,
-                onFormModeChange: (mode) => (state.aiAgentsFormMode = mode),
-                onSearchChange: (query) => (state.aiAgentsSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.aiAgentsActiveSection = section;
-                  state.aiAgentsActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.aiAgentsActiveSubsection = section),
               })
             : nothing
         }
