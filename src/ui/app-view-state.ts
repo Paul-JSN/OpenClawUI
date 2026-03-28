@@ -180,6 +180,9 @@ export type AppViewState = {
   sessionsIncludeUnknown: boolean;
   usageLoading: boolean;
   usageUiReady: boolean;
+  paletteOpen: boolean;
+  paletteQuery: string;
+  paletteActiveIndex: number;
   usageResult: SessionsUsageResult | null;
   usageCostSummary: CostUsageSummary | null;
   usageStatus: UsageSummary | null;

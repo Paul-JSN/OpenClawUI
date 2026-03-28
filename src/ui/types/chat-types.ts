@@ -4,7 +4,7 @@
 
 /** Union type for items in the chat thread */
 export type ChatItem =
-  | { kind: "message"; key: string; message: unknown }
+  | { kind: "message"; key: string; message: unknown; sourceIndex?: number }
   | { kind: "divider"; key: string; label: string; timestamp: number }
   | { kind: "stream"; key: string; text: string; startedAt: number }
   | { kind: "reading-indicator"; key: string };
@@ -14,7 +14,8 @@ export type MessageGroup = {
   kind: "group";
   key: string;
   role: string;
-  messages: Array<{ message: unknown; key: string }>;
+  senderLabel?: string | null;
+  messages: Array<{ message: unknown; key: string; sourceIndex?: number }>;
   timestamp: number;
   isStreaming: boolean;
 };
@@ -33,6 +34,7 @@ export type NormalizedMessage = {
   content: MessageContentItem[];
   timestamp: number;
   id?: string;
+  senderLabel?: string | null;
 };
 
 /** Tool card representation for tool calls and results */

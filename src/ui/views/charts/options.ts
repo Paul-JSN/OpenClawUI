@@ -16,6 +16,17 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(Math.abs(value) < 1 ? 4 : 2)}`;
 }
 
+function formatMillionShort(value: number): string {
+  const rounded = Math.round(Number.isFinite(value) ? value : 0);
+  const abs = Math.abs(rounded);
+  if (abs < 1_000_000) {
+    return rounded.toLocaleString();
+  }
+  const million = rounded / 1_000_000;
+  const fixed = Math.abs(million) >= 10 ? million.toFixed(0) : million.toFixed(1);
+  return `${fixed.replace(/\.0$/, "")}M`;
+}
+
 function baseGrid(): EChartsOption["grid"] {
   return {
     top: 30,
@@ -1161,10 +1172,10 @@ export function buildReactTokenMixDonutOption(model: UsageAnalyticsViewModel): E
           left: "center",
           top: "42%",
           style: {
-            text: `${Math.round(total).toLocaleString()}`,
+            text: formatMillionShort(total),
             fill: CHART_NEON.text,
             fontFamily: "var(--mono)",
-            fontSize: 16,
+            fontSize: 48,
             fontWeight: 700,
             textAlign: "center",
           },
@@ -1248,10 +1259,10 @@ export function buildReactTokenMixDonutOption(model: UsageAnalyticsViewModel): E
         left: "center",
         top: "42%",
         style: {
-          text: `${Math.round(total).toLocaleString()}`,
+          text: formatMillionShort(total),
           fill: CHART_NEON.text,
           fontFamily: "var(--mono)",
-          fontSize: 16,
+          fontSize: 48,
           fontWeight: 700,
           textAlign: "center",
         },
@@ -1347,10 +1358,10 @@ export function buildReactSourceDonutOption(sourceRows: UsageSourceSummary[]): E
         left: "center",
         top: "40%",
         style: {
-          text: `${Math.round(totalTokens).toLocaleString()}`,
+          text: formatMillionShort(totalTokens),
           fill: CHART_NEON.text,
           fontFamily: "var(--mono)",
-          fontSize: 22,
+          fontSize: 60,
           fontWeight: 700,
           textAlign: "center",
         },

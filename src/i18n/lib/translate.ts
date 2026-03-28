@@ -9,6 +9,24 @@ export function isSupportedLocale(value: string | null | undefined): value is Lo
   return value !== null && value !== undefined && SUPPORTED_LOCALES.includes(value as Locale);
 }
 
+function getSafeLocalStorage(): Storage | null {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+function getSafeNavigatorLanguage(): string {
+  try {
+    return typeof navigator !== "undefined" && typeof navigator.language === "string"
+      ? navigator.language
+      : "en";
+  } catch {
+    return "en";
+  }
+}
+
 class I18nManager {
   private locale: Locale = "en";
   private translations: Record<Locale, TranslationMap> = { en } as Record<Locale, TranslationMap>;
@@ -19,11 +37,12 @@ class I18nManager {
   }
 
   private resolveInitialLocale(): Locale {
-    const saved = localStorage.getItem("openclaw.i18n.locale");
+    const storage = getSafeLocalStorage();
+    const saved = storage?.getItem("openclaw.i18n.locale") ?? null;
     if (isSupportedLocale(saved)) {
       return saved;
     }
-    const navLang = navigator.language;
+    const navLang = getSafeNavigatorLanguage();
     if (navLang.startsWith("zh")) {
       return navLang === "zh-TW" || navLang === "zh-HK" ? "zh-TW" : "zh-CN";
     }
@@ -75,7 +94,7 @@ class I18nManager {
     }
 
     this.locale = locale;
-    localStorage.setItem("openclaw.i18n.locale", locale);
+    getSafeLocalStorage()?.setItem("openclaw.i18n.locale", locale);
     this.notify();
   }
 

@@ -3,6 +3,7 @@ import type { ConfigUiHints } from "../types.ts";
 import { hintForPath, humanize, schemaType, type JsonSchema } from "./config-form.shared.ts";
 import { analyzeConfigSchema, renderConfigForm, SECTION_META } from "./config-form.ts";
 import { getTagFilters, replaceTagFilters } from "./config-search.ts";
+import { renderLoadingState } from "./loading-state.ts";
 
 export type ConfigProps = {
   raw: string;
@@ -766,8 +767,10 @@ export function renderConfig(props: ConfigProps) {
                   props.schemaLoading
                     ? html`
                         <div class="config-loading">
-                          <div class="config-loading__spinner"></div>
-                          <span>Loading schema…</span>
+                          ${renderLoadingState({
+                            label: "Loading configuration schema",
+                            detail: "Preparing the editable settings form…",
+                          })}
                         </div>
                       `
                     : renderConfigForm({

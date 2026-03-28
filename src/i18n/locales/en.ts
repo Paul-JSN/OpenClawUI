@@ -13,6 +13,7 @@ export const en: TranslationMap = {
     na: "n/a",
     docs: "Docs",
     resources: "Resources",
+    search: "Search",
   },
   nav: {
     chat: "Chat",
@@ -35,6 +36,11 @@ export const en: TranslationMap = {
     nodes: "Nodes",
     chat: "Chat",
     config: "Config",
+    communications: "Communications",
+    appearance: "Appearance",
+    automation: "Automation",
+    infrastructure: "Infrastructure",
+    aiAgents: "AI & Agents",
     debug: "Debug",
     logs: "Logs",
   },
@@ -51,6 +57,11 @@ export const en: TranslationMap = {
     nodes: "Paired devices, capabilities, and command exposure.",
     chat: "Direct gateway chat session for quick interventions.",
     config: "Edit ~/.openclaw/openclaw.json safely.",
+    communications: "Channel, messaging, broadcast, and voice-related settings.",
+    appearance: "UI appearance, onboarding, and presentation preferences.",
+    automation: "Commands, hooks, cron, plugins, and approval-related automation.",
+    infrastructure: "Gateway, web, browser, discovery, and platform infrastructure settings.",
+    aiAgents: "Agents, models, skills, tools, memory, and session behavior.",
     debug: "Gateway snapshots, events, and manual RPC calls.",
     logs: "Live tail of the gateway file logs.",
   },
@@ -102,6 +113,10 @@ export const en: TranslationMap = {
       hint: "This device needs pairing approval from the gateway host.",
       mobileHint:
         "On mobile? Copy the full URL (including #token=...) from openclaw dashboard --no-open on your desktop.",
+    },
+    palette: {
+      placeholder: "Search tabs or commands…",
+      empty: "No matching tabs or commands.",
     },
     insecure: {
       hint: "This page is HTTP, so the browser blocks device identity. Use HTTPS (Tailscale Serve) or open {url} on the gateway host.",

@@ -6,6 +6,7 @@ import { syncUrlWithSessionKey } from "./app-settings.ts";
 import type { AppViewState } from "./app-view-state.ts";
 import { OpenClawApp } from "./app.ts";
 import { ChatState, loadChatHistory } from "./controllers/chat.ts";
+import { loadSessions } from "./controllers/sessions.ts";
 import { icons } from "./icons.ts";
 import { iconForTab, pathForTab, titleForTab, type Tab } from "./navigation.ts";
 import type { ThemeTransitionContext } from "./theme-transition.ts";
@@ -71,6 +72,18 @@ export function renderTab(state: AppViewState, tab: Tab) {
             resetChatStateForSessionSwitch(state, mainSessionKey);
             void state.loadAssistantIdentity();
           }
+          const anchor = event.currentTarget as HTMLAnchorElement | null;
+          if (anchor && typeof window !== "undefined") {
+            const targetUrl = new URL(anchor.href, window.location.href);
+            if (mainSessionKey) {
+              targetUrl.searchParams.set("session", mainSessionKey);
+            }
+            const currentUrl = new URL(window.location.href);
+            if (currentUrl.pathname !== targetUrl.pathname) {
+              window.location.assign(targetUrl.toString());
+              return;
+            }
+          }
         }
         state.setTab(tab);
       }}
@@ -83,53 +96,16 @@ export function renderTab(state: AppViewState, tab: Tab) {
   `;
 }
 
-export function renderChatControls(state: AppViewState) {
+export function renderChatSessionSelect(state: AppViewState) {
   const mainSessionKey = resolveMainSessionKey(state.hello, state.sessionsResult);
   const sessionOptions = resolveSessionOptions(
     state.sessionKey,
     state.sessionsResult,
     mainSessionKey,
   );
-  const disableThinkingToggle = state.onboarding;
-  const disableFocusToggle = state.onboarding;
-  const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
-  const focusActive = state.onboarding ? true : state.settings.chatFocusMode;
-  // Refresh icon
-  const refreshIcon = html`
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
-      <path d="M21 3v5h-5"></path>
-    </svg>
-  `;
-  const focusIcon = html`
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M4 7V4h3"></path>
-      <path d="M20 7V4h-3"></path>
-      <path d="M4 17v3h3"></path>
-      <path d="M20 17v3h-3"></path>
-      <circle cx="12" cy="12" r="3"></circle>
-    </svg>
-  `;
+  const modelSelect = renderChatModelSelect(state);
   return html`
-    <div class="chat-controls">
+    <div class="chat-controls__session-row">
       <label class="field chat-controls__session">
         <select
           .value=${state.sessionKey}
@@ -167,6 +143,191 @@ export function renderChatControls(state: AppViewState) {
           )}
         </select>
       </label>
+      ${modelSelect}
+    </div>
+  `;
+}
+
+type ChatModelOption = { value: string; label: string };
+
+function buildQualifiedModelValue(model: string, provider?: string | null): string {
+  const trimmedModel = model.trim();
+  if (!trimmedModel) {
+    return "";
+  }
+  const trimmedProvider = provider?.trim();
+  return trimmedProvider ? `${trimmedProvider}/${trimmedModel}` : trimmedModel;
+}
+
+function formatChatModelLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const idx = trimmed.indexOf("/");
+  if (idx <= 0) {
+    return trimmed;
+  }
+  return `${trimmed.slice(idx + 1)} · ${trimmed.slice(0, idx)}`;
+}
+
+function resolveActiveChatModelValue(state: AppViewState): string {
+  const row = state.sessionsResult?.sessions?.find((entry) => entry.key === state.sessionKey);
+  if (!row?.model) {
+    return "";
+  }
+  return buildQualifiedModelValue(row.model, row.modelProvider);
+}
+
+function resolveDefaultChatModelValue(state: AppViewState): string {
+  const model = state.sessionsResult?.defaults?.model?.trim();
+  if (model) {
+    return model;
+  }
+  return state.modelsDefaults?.primary?.trim?.() || "";
+}
+
+function resolveChatModelOptions(state: AppViewState): ChatModelOption[] {
+  const seen = new Set<string>();
+  const options: ChatModelOption[] = [];
+  const add = (value: string, label?: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    options.push({ value: trimmed, label: label ?? (formatChatModelLabel(trimmed) || trimmed) });
+  };
+
+  for (const [providerId, provider] of Object.entries(state.modelsProviders ?? {})) {
+    for (const model of provider.models ?? []) {
+      add(buildQualifiedModelValue(model.id, providerId), `${model.id} · ${providerId}`);
+    }
+  }
+  for (const alias of state.modelsAliases ?? []) {
+    add(alias.alias, `${alias.alias} · alias`);
+  }
+  add(resolveActiveChatModelValue(state));
+  add(resolveDefaultChatModelValue(state));
+  return options;
+}
+
+async function switchChatModel(state: AppViewState, nextModel: string) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  const currentValue = resolveActiveChatModelValue(state);
+  if (currentValue === nextModel) {
+    return;
+  }
+  state.lastError = null;
+  try {
+    await state.client.request("sessions.patch", {
+      key: state.sessionKey,
+      model: nextModel || null,
+    });
+    await loadSessions(state as unknown as Parameters<typeof loadSessions>[0], {
+      activeMinutes: 0,
+      limit: 0,
+      includeGlobal: true,
+      includeUnknown: true,
+    });
+  } catch (err) {
+    state.lastError = `Failed to set model: ${String(err)}`;
+  }
+}
+
+function renderChatModelSelect(state: AppViewState) {
+  const currentValue = resolveActiveChatModelValue(state);
+  const defaultValue = resolveDefaultChatModelValue(state);
+  const options = resolveChatModelOptions(state);
+  const busy = state.chatLoading || state.chatSending || Boolean(state.chatRunId) || state.chatStream !== null;
+  const disabled = !state.connected || busy || options.length === 0 || !state.client;
+  const defaultLabel = defaultValue ? `Default (${formatChatModelLabel(defaultValue) || defaultValue})` : "Default model";
+  return html`
+    <label class="field chat-controls__session chat-controls__model">
+      <select
+        data-chat-model-select="true"
+        aria-label="Chat model"
+        ?disabled=${disabled}
+        @change=${async (e: Event) => {
+          const next = (e.target as HTMLSelectElement).value.trim();
+          await switchChatModel(state, next);
+        }}
+      >
+        <option value="" ?selected=${currentValue === ""}>${defaultLabel}</option>
+        ${repeat(
+          options,
+          (entry) => entry.value,
+          (entry) =>
+            html`<option value=${entry.value} ?selected=${entry.value === currentValue}>${entry.label}</option>`,
+        )}
+      </select>
+    </label>
+  `;
+}
+
+export function renderChatControls(state: AppViewState) {
+  const disableThinkingToggle = state.onboarding;
+  const disableFocusToggle = state.onboarding;
+  const disableToolCallsToggle = state.onboarding;
+  const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
+  const showToolCalls = state.onboarding ? true : state.settings.chatShowToolCalls;
+  const focusActive = state.onboarding ? true : state.settings.chatFocusMode;
+  // Refresh icon
+  const refreshIcon = html`
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+      <path d="M21 3v5h-5"></path>
+    </svg>
+  `;
+  const toolCallsIcon = html`
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+    </svg>
+  `;
+  const focusIcon = html`
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M4 7V4h3"></path>
+      <path d="M20 7V4h-3"></path>
+      <path d="M4 17v3h3"></path>
+      <path d="M20 17v3h-3"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+  `;
+  return html`
+    <div class="chat-controls">
       <button
         class="btn btn--sm btn--icon"
         ?disabled=${state.chatLoading || !state.connected}
@@ -209,6 +370,23 @@ export function renderChatControls(state: AppViewState) {
         title=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
       >
         ${icons.brain}
+      </button>
+      <button
+        class="btn btn--sm btn--icon ${showToolCalls ? "active" : ""}"
+        ?disabled=${disableToolCallsToggle}
+        @click=${() => {
+          if (disableToolCallsToggle) {
+            return;
+          }
+          state.applySettings({
+            ...state.settings,
+            chatShowToolCalls: !state.settings.chatShowToolCalls,
+          });
+        }}
+        aria-pressed=${showToolCalls}
+        title=${disableToolCallsToggle ? t("chat.onboardingDisabled") : "Toggle tool calls"}
+      >
+        ${toolCallsIcon}
       </button>
       <button
         class="btn btn--sm btn--icon ${focusActive ? "active" : ""}"

@@ -381,6 +381,9 @@ export class OpenClawApp extends LitElement {
   @state() cronBusy = false;
 
   @state() updateAvailable: import("./types.js").UpdateAvailable | null = null;
+  @state() paletteOpen = false;
+  @state() paletteQuery = "";
+  @state() paletteActiveIndex = 0;
 
   @state() skillsLoading = false;
   @state() skillsReport: SkillStatusReport | null = null;
@@ -451,13 +454,40 @@ export class OpenClawApp extends LitElement {
   private themeMedia: MediaQueryList | null = null;
   private themeMediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
   private topbarObserver: ResizeObserver | null = null;
-
+  private globalKeydownHandler = (event: KeyboardEvent) => {
+    const target = event.target;
+    const typingTarget =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      this.paletteOpen = !this.paletteOpen;
+      if (this.paletteOpen) {
+        this.paletteQuery = "";
+        this.paletteActiveIndex = 0;
+      }
+      return;
+    }
+    if (event.key === "Escape" && this.paletteOpen) {
+      event.preventDefault();
+      this.paletteOpen = false;
+      this.paletteQuery = "";
+      this.paletteActiveIndex = 0;
+      return;
+    }
+    if (typingTarget) {
+      return;
+    }
+  };
   createRenderRoot() {
     return this;
   }
 
   connectedCallback() {
     super.connectedCallback();
+    document.addEventListener("keydown", this.globalKeydownHandler);
     handleConnected(this as unknown as Parameters<typeof handleConnected>[0]);
   }
 
@@ -466,6 +496,7 @@ export class OpenClawApp extends LitElement {
   }
 
   disconnectedCallback() {
+    document.removeEventListener("keydown", this.globalKeydownHandler);
     handleDisconnected(this as unknown as Parameters<typeof handleDisconnected>[0]);
     super.disconnectedCallback();
   }

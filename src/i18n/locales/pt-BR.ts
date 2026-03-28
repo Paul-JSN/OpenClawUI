@@ -13,6 +13,7 @@ export const pt_BR: TranslationMap = {
     na: "n/a",
     docs: "Docs",
     resources: "Recursos",
+    search: "Buscar",
   },
   nav: {
     chat: "Chat",
@@ -35,6 +36,11 @@ export const pt_BR: TranslationMap = {
     nodes: "Nós",
     chat: "Chat",
     config: "Config",
+    communications: "Communications",
+    appearance: "Appearance",
+    automation: "Automation",
+    infrastructure: "Infrastructure",
+    aiAgents: "AI & Agents",
     debug: "Debug",
     logs: "Logs",
   },
@@ -104,6 +110,10 @@ export const pt_BR: TranslationMap = {
       hint: "Este dispositivo precisa de aprovação de pareamento do host do gateway.",
       mobileHint:
         "No celular? Copie a URL completa (incluindo #token=...) executando openclaw dashboard --no-open no desktop.",
+    },
+    palette: {
+      placeholder: "Buscar abas ou comandos…",
+      empty: "Nenhuma aba ou comando encontrado.",
     },
     insecure: {
       hint: "Esta página é HTTP, então o navegador bloqueia a identidade do dispositivo. Use HTTPS (Tailscale Serve) ou abra {url} no host do gateway.",

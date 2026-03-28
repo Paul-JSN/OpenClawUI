@@ -55,6 +55,33 @@ export function normalizeAgentLabel(agent: {
   return agent.name?.trim() || agent.identity?.name?.trim() || agent.id;
 }
 
+const AVATAR_URL_RE = /^(https?:\/\/|data:image\/|\/)/i;
+
+export function resolveAgentAvatarUrl(
+  agent: { identity?: { avatar?: string; avatarUrl?: string } },
+  agentIdentity?: AgentIdentityResult | null,
+): string | null {
+  const candidates = [
+    agentIdentity?.avatar?.trim(),
+    agent.identity?.avatarUrl?.trim(),
+    agent.identity?.avatar?.trim(),
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (AVATAR_URL_RE.test(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export function agentLogoUrl(basePath: string): string {
+  const base = basePath?.trim() ? basePath.replace(/\/$/, "") : "";
+  return base ? `${base}/favicon.svg` : "favicon.svg";
+}
+
 function isLikelyEmoji(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {

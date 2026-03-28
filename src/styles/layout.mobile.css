@@ -372,3 +372,70 @@
     height: 11px;
   }
 }
+
+@media (max-width: 600px) {
+  .dashboard-header__breadcrumb-link,
+  .dashboard-header__breadcrumb-current,
+  .dashboard-header__breadcrumb-sep {
+    font-size: 9px;
+  }
+
+  .topbar-search {
+    padding: 0 8px;
+  }
+
+  .topbar-search__kbd {
+    display: none;
+  }
+
+  .cmd-palette-overlay {
+    padding-top: 72px;
+  }
+
+  .cmd-palette {
+    width: min(560px, calc(100vw - 16px));
+  }
+
+  .cmd-palette__item {
+    padding: 9px 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar-search__label {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .agent-chat__search-bar,
+  .agent-chat__pinned,
+  .agent-chat__empty {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .agent-chat__input {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .agent-chat__toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .agent-chat__toolbar-left,
+  .agent-chat__toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .agent-chat__pinned-item {
+    grid-template-columns: 1fr auto;
+  }
+
+  .agent-chat__pinned-role {
+    grid-column: 1 / -1;
+  }
+}

@@ -13,6 +13,7 @@ export const zh_TW: TranslationMap = {
     na: "不適用",
     docs: "文檔",
     resources: "資源",
+    search: "搜尋",
   },
   nav: {
     chat: "聊天",
@@ -101,6 +102,10 @@ export const zh_TW: TranslationMap = {
       hint: "此裝置需要閘道主機的配對批准。",
       mobileHint:
         "在手機上？從桌面執行 openclaw dashboard --no-open 複製完整 URL（包括 #token=...）。",
+    },
+    palette: {
+      placeholder: "搜尋分頁或命令…",
+      empty: "沒有符合的分頁或命令。",
     },
     insecure: {
       hint: "此頁面為 HTTP，因此瀏覽器阻止設備標識。請使用 HTTPS (Tailscale Serve) 或在網關主機上打開 {url}。",

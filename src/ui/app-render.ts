@@ -2,7 +2,13 @@
 import { parseAgentSessionKey } from "../../../src/routing/session-key.js";
 import { t } from "../i18n/index.ts";
 import { refreshChatAvatar } from "./app-chat.ts";
-import { renderChatControls, renderTab, renderThemeToggle } from "./app-render.helpers.ts";
+import "./components/dashboard-header.ts";
+import {
+  renderChatControls,
+  renderChatSessionSelect,
+  renderTab,
+  renderThemeToggle,
+} from "./app-render.helpers.ts";
 import type { AppViewState } from "./app-view-state.ts";
 import { loadAgentFileContent, loadAgentFiles, saveAgentFile } from "./controllers/agent-files.ts";
 import { loadAgentIdentities, loadAgentIdentity } from "./controllers/agent-identity.ts";
@@ -72,12 +78,15 @@ import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./na
 import { renderAgents } from "./views/agents.ts";
 import { renderChannels } from "./views/channels.ts";
 import { renderChat } from "./views/chat.ts";
+import { renderCommandPalette } from "./views/command-palette.ts";
+import { renderCuratedConfigPage } from "./views/config-curated.ts";
 import { renderConfig } from "./views/config.ts";
 import { renderCron } from "./views/cron.ts";
 import { renderDebug } from "./views/debug.ts";
 import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
 import { renderInstances } from "./views/instances.ts";
+import { renderLoadingState } from "./views/loading-state.ts";
 import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
@@ -158,7 +167,10 @@ function renderModelsTabLazy(state: AppViewState) {
   ensureModelsTabRenderer(state);
   return html`
     <section class="models-page">
-      <div class="callout">Loading Models UI module…</div>
+      ${renderLoadingState({
+        label: "Loading models workspace",
+        detail: "Hydrating the dedicated Models UI module…",
+      })}
       ${
         modelsTabRendererError
           ? html`<div class="callout warning">Failed to load Models UI module: ${modelsTabRendererError}</div>`
@@ -182,7 +194,10 @@ function renderUsageTabLazy(state: AppViewState) {
   ensureUsageTabRenderer(state);
   return html`
     <section class="react-analytics-page">
-      <div class="callout">Loading usage UI module…</div>
+      ${renderLoadingState({
+        label: "Loading usage analytics",
+        detail: "Hydrating the dedicated Usage UI module…",
+      })}
       ${
         usageTabRendererError
           ? html`<div class="callout warning">Failed to load Usage UI module: ${usageTabRendererError}</div>`
@@ -245,6 +260,30 @@ function stripYear(version: string): string {
   return version.replace(/^\d{4}\./, "");
 }
 
+function renderCuratedSettingsTab(
+  state: AppViewState,
+  page: Parameters<typeof renderCuratedConfigPage>[0]["page"],
+) {
+  return renderCuratedConfigPage({
+    page,
+    connected: state.connected,
+    loading: state.configLoading,
+    schemaLoading: state.configSchemaLoading,
+    saving: state.configSaving,
+    applying: state.configApplying,
+    dirty: state.configFormDirty,
+    schema: state.configSchema,
+    uiHints: state.configUiHints,
+    formValue: state.configForm,
+    onPatch: (path, value) => updateConfigFormValue(state, path, value),
+    onReload: () => loadConfig(state),
+    onSave: () => saveConfig(state),
+    onApply: () => applyConfig(state),
+    onOpenTab: (tab) => state.setTab(tab),
+    onOpenConfig: () => state.setTab("config"),
+  });
+}
+
 export function renderApp(state: AppViewState) {
   const openClawVersion =
     (typeof state.hello?.server?.version === "string" && state.hello.server.version.trim()) ||
@@ -279,6 +318,7 @@ export function renderApp(state: AppViewState) {
   const isAnalyticsTab = state.tab === "overview" || state.tab === "usage";
   const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding);
   const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
+  const showToolCalls = state.onboarding ? true : state.settings.chatShowToolCalls;
   const assistantAvatarUrl = resolveAssistantAvatarUrl(state);
   const chatAvatarUrl = state.chatAvatarUrl ?? assistantAvatarUrl ?? null;
   const configValue =
@@ -339,18 +379,50 @@ export function renderApp(state: AppViewState) {
     state.cronForm.deliveryMode === "webhook"
       ? rawDeliveryToSuggestions.filter((value) => isHttpUrl(value))
       : rawDeliveryToSuggestions;
-
   return html`
+    ${renderCommandPalette({
+      open: state.paletteOpen,
+      query: state.paletteQuery,
+      activeIndex: state.paletteActiveIndex,
+      onToggle: () => {
+        state.paletteOpen = !state.paletteOpen;
+      },
+      onQueryChange: (query) => {
+        state.paletteQuery = query;
+      },
+      onActiveIndexChange: (index) => {
+        state.paletteActiveIndex = index;
+      },
+      onNavigate: (tab) => {
+        state.setTab(tab);
+      },
+      onSlashCommand: (command) => {
+        state.setTab("chat");
+        state.chatMessage = command.endsWith(" ") ? command : `${command} `;
+      },
+    })}
     <div class="shell scanline ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
       <header class="topbar">
         <div class="topbar-left">
-          <div class="topbar-title">
-            <span class="topbar-title__main">Control Panel</span>
-            <span class="topbar-title__sep">//</span>
-            <span class="topbar-title__sub">Analytics</span>
-          </div>
+          <dashboard-header .tab=${state.tab}></dashboard-header>
         </div>
         <div class="topbar-status">
+          <button
+            type="button"
+            class="topbar-search"
+            @click=${() => {
+              state.paletteOpen = !state.paletteOpen;
+              if (state.paletteOpen) {
+                state.paletteQuery = "";
+                state.paletteActiveIndex = 0;
+              }
+            }}
+            title="Search or jump to… (⌘K)"
+            aria-label="Open command palette"
+          >
+            <span class="topbar-search__label">${t("common.search")}</span>
+            <kbd class="topbar-search__kbd">⌘K</kbd>
+          </button>
           <div class="topbar-conn ${state.connected ? "is-online" : "is-offline"}">
             <span class="topbar-conn__dot"></span>
             <span class="topbar-conn__text">${state.connected ? "CONNECTED" : "OFFLINE"}</span>
@@ -464,10 +536,18 @@ export function renderApp(state: AppViewState) {
             ? nothing
             : html`
                 <section class="content-header">
-                  <div class="page-headline">
-                    <span class="page-title">${titleForTab(state.tab)}</span>
-                    <span class="page-headline__sep">//</span>
-                    <span class="page-sub">${lowerFirst(subtitleForTab(state.tab))}</span>
+                  <div>
+                    ${
+                      isChat
+                        ? renderChatSessionSelect(state)
+                        : html`
+                            <div class="page-headline">
+                              <span class="page-title">${titleForTab(state.tab)}</span>
+                              <span class="page-headline__sep">//</span>
+                              <span class="page-sub">${lowerFirst(subtitleForTab(state.tab))}</span>
+                            </div>
+                          `
+                    }
                   </div>
                   <div class="page-meta">
                     ${state.lastError ? html`<div class="pill danger">${state.lastError}</div>` : nothing}
@@ -641,6 +721,7 @@ export function renderApp(state: AppViewState) {
               })
             : nothing
         }
+
 
         ${
           state.tab === "cron"
@@ -1203,6 +1284,7 @@ export function renderApp(state: AppViewState) {
                 },
                 thinkingLevel: state.chatThinkingLevel,
                 showThinking,
+                showToolCalls,
                 loading: state.chatLoading,
                 sending: state.chatSending,
                 compactionStatus: state.compactionStatus,
@@ -1235,6 +1317,10 @@ export function renderApp(state: AppViewState) {
                 },
                 onChatScroll: (event) => state.handleChatScroll(event),
                 onDraftChange: (next) => (state.chatMessage = next),
+                onRequestUpdate: () => {
+                  (state as unknown as { requestUpdate?: () => void }).requestUpdate?.();
+                },
+                getDraft: () => state.chatMessage,
                 attachments: state.chatAttachments,
                 onAttachmentsChange: (next) => (state.chatAttachments = next),
                 onSend: () => state.handleSendChat(),
@@ -1254,7 +1340,39 @@ export function renderApp(state: AppViewState) {
                 onSplitRatioChange: (ratio: number) => state.handleSplitRatioChange(ratio),
                 assistantName: state.assistantName,
                 assistantAvatar: state.assistantAvatar,
+                currentAgentId: state.assistantAgentId ?? undefined,
+                agentsList: state.agentsList,
               })
+            : nothing
+        }
+
+        ${
+          state.tab === "communications"
+            ? renderCuratedSettingsTab(state, "communications")
+            : nothing
+        }
+
+        ${
+          state.tab === "appearance"
+            ? renderCuratedSettingsTab(state, "appearance")
+            : nothing
+        }
+
+        ${
+          state.tab === "automation"
+            ? renderCuratedSettingsTab(state, "automation")
+            : nothing
+        }
+
+        ${
+          state.tab === "infrastructure"
+            ? renderCuratedSettingsTab(state, "infrastructure")
+            : nothing
+        }
+
+        ${
+          state.tab === "aiAgents"
+            ? renderCuratedSettingsTab(state, "aiAgents")
             : nothing
         }
 

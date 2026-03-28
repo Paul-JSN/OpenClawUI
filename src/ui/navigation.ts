@@ -5,10 +5,22 @@ export const TAB_GROUPS = [
   { label: "chat", tabs: ["chat"] },
   {
     label: "control",
-    tabs: ["overview", "channels", "instances", "sessions", "usage", "cron", "models"],
+    tabs: ["overview", "usage", "sessions", "channels", "instances", "cron", "models"],
   },
   { label: "agent", tabs: ["agents", "skills", "nodes"] },
-  { label: "settings", tabs: ["config", "debug", "logs"] },
+  {
+    label: "settings",
+    tabs: [
+      "config",
+      "communications",
+      "appearance",
+      "automation",
+      "infrastructure",
+      "aiAgents",
+      "debug",
+      "logs",
+    ],
+  },
 ] as const;
 
 export type Tab =
@@ -24,6 +36,11 @@ export type Tab =
   | "nodes"
   | "chat"
   | "config"
+  | "communications"
+  | "appearance"
+  | "automation"
+  | "infrastructure"
+  | "aiAgents"
   | "debug"
   | "logs";
 
@@ -40,11 +57,18 @@ const TAB_PATHS: Record<Tab, string> = {
   nodes: "/nodes",
   chat: "/chat",
   config: "/config",
+  communications: "/communications",
+  appearance: "/appearance",
+  automation: "/automation",
+  infrastructure: "/infrastructure",
+  aiAgents: "/aiAgents",
   debug: "/debug",
   logs: "/logs",
 };
 
-const PATH_TO_TAB = new Map(Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as Tab]));
+const PATH_TO_TAB = new Map(
+  Object.entries(TAB_PATHS).map(([tab, path]) => [path.toLowerCase(), tab as Tab]),
+);
 
 export function normalizeBasePath(basePath: string): string {
   if (!basePath) {
@@ -149,6 +173,16 @@ export function iconForTab(tab: Tab): IconName {
       return "zap";
     case "nodes":
       return "monitor";
+    case "communications":
+      return "messageSquare";
+    case "appearance":
+      return "circle";
+    case "automation":
+      return "zap";
+    case "infrastructure":
+      return "globe";
+    case "aiAgents":
+      return "brain";
     case "config":
       return "settings";
     case "debug":

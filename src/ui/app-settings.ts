@@ -66,6 +66,16 @@ type SettingsHost = {
   pendingGatewayUrl?: string | null;
 };
 
+function isCuratedConfigTab(tab: Tab): boolean {
+  return (
+    tab === "communications" ||
+    tab === "appearance" ||
+    tab === "automation" ||
+    tab === "infrastructure" ||
+    tab === "aiAgents"
+  );
+}
+
 export function applySettings(host: SettingsHost, next: UiSettings) {
   const normalized = {
     ...next,
@@ -214,6 +224,7 @@ export async function refreshActiveTab(host: SettingsHost) {
       loadConfigSchema(host as unknown as OpenClawApp),
       loadConfig(host as unknown as OpenClawApp),
       loadCronModelSuggestions(host as unknown as OpenClawApp),
+      loadModels(host as unknown as OpenClawApp),
     ]);
   }
   if (host.tab === "cron") {
@@ -221,9 +232,6 @@ export async function refreshActiveTab(host: SettingsHost) {
   }
   if (host.tab === "skills") {
     await loadSkills(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "models") {
-    await loadModels(host as unknown as OpenClawApp);
   }
   if (host.tab === "agents") {
     await loadAgents(host as unknown as OpenClawApp);
@@ -261,7 +269,7 @@ export async function refreshActiveTab(host: SettingsHost) {
       !host.chatHasAutoScrolled,
     );
   }
-  if (host.tab === "config") {
+  if (host.tab === "config" || isCuratedConfigTab(host.tab)) {
     await loadConfigSchema(host as unknown as OpenClawApp);
     await loadConfig(host as unknown as OpenClawApp);
   }
