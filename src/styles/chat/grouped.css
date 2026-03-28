@@ -332,6 +332,14 @@ img.chat-avatar {
   background: color-mix(in srgb, var(--card) 88%, transparent);
   color: var(--muted-strong);
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent);
+}
+
+.chat-copy-btn:hover,
+.chat-expand-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
 }
 
 .chat-copy-btn__icon svg,

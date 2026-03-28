@@ -384,22 +384,20 @@
     padding: 0 8px;
   }
 
-  .topbar-search__kbd,
-  .cmd-palette__kbd {
+  .topbar-search__kbd {
     display: none;
   }
 
-  .cmd-palette {
-    top: 56px;
-    width: calc(100vw - 16px);
+  .cmd-palette-overlay {
+    padding-top: 72px;
   }
 
-  .cmd-palette__panel {
-    padding: 8px;
+  .cmd-palette {
+    width: min(560px, calc(100vw - 16px));
   }
 
   .cmd-palette__item {
-    padding: 9px 10px;
+    padding: 9px 14px;
   }
 }
 

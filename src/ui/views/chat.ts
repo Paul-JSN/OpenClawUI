@@ -1274,59 +1274,62 @@ export function renderChat(props: ChatProps) {
               ${icons.paperclip}
             </button>
 
-            ${
-              isSttSupported()
-                ? html`
-                  <button
-                    class="agent-chat__input-btn ${vs.sttRecording ? "agent-chat__input-btn--recording" : ""}"
-                    @click=${() => {
-                      if (vs.sttRecording) {
-                        stopStt();
-                        vs.sttRecording = false;
-                        vs.sttInterimText = "";
-                        requestUpdate();
-                      } else {
-                        const started = startStt({
-                          onTranscript: (text, isFinal) => {
-                            if (isFinal) {
-                              const current = getDraft();
-                              const sep = current && !current.endsWith(" ") ? " " : "";
-                              props.onDraftChange(current + sep + text);
-                              vs.sttInterimText = "";
-                            } else {
-                              vs.sttInterimText = text;
-                            }
-                            requestUpdate();
-                          },
-                          onStart: () => {
-                            vs.sttRecording = true;
-                            requestUpdate();
-                          },
-                          onEnd: () => {
-                            vs.sttRecording = false;
+            ${(() => {
+              const sttSupported = isSttSupported();
+              return html`
+                <button
+                  class="agent-chat__input-btn ${vs.sttRecording ? "agent-chat__input-btn--recording" : ""} ${!sttSupported ? "agent-chat__input-btn--unavailable" : ""}"
+                  @click=${() => {
+                    if (!sttSupported) {
+                      return;
+                    }
+                    if (vs.sttRecording) {
+                      stopStt();
+                      vs.sttRecording = false;
+                      vs.sttInterimText = "";
+                      requestUpdate();
+                    } else {
+                      const started = startStt({
+                        onTranscript: (text, isFinal) => {
+                          if (isFinal) {
+                            const current = getDraft();
+                            const sep = current && !current.endsWith(" ") ? " " : "";
+                            props.onDraftChange(current + sep + text);
                             vs.sttInterimText = "";
-                            requestUpdate();
-                          },
-                          onError: () => {
-                            vs.sttRecording = false;
-                            vs.sttInterimText = "";
-                            requestUpdate();
-                          },
-                        });
-                        if (started) {
+                          } else {
+                            vs.sttInterimText = text;
+                          }
+                          requestUpdate();
+                        },
+                        onStart: () => {
                           vs.sttRecording = true;
                           requestUpdate();
-                        }
+                        },
+                        onEnd: () => {
+                          vs.sttRecording = false;
+                          vs.sttInterimText = "";
+                          requestUpdate();
+                        },
+                        onError: () => {
+                          vs.sttRecording = false;
+                          vs.sttInterimText = "";
+                          requestUpdate();
+                        },
+                      });
+                      if (started) {
+                        vs.sttRecording = true;
+                        requestUpdate();
                       }
-                    }}
-                    title=${vs.sttRecording ? "Stop recording" : "Voice input"}
-                    ?disabled=${!props.connected}
-                  >
-                    ${vs.sttRecording ? icons.micOff : icons.mic}
-                  </button>
-                `
-                : nothing
-            }
+                    }
+                  }}
+                  title=${!sttSupported ? "Voice input unavailable in this browser" : vs.sttRecording ? "Stop recording" : "Voice input"}
+                  aria-label=${!sttSupported ? "Voice input unavailable" : vs.sttRecording ? "Stop recording" : "Voice input"}
+                  ?disabled=${!props.connected || !sttSupported}
+                >
+                  ${vs.sttRecording ? icons.micOff : icons.mic}
+                </button>
+              `;
+            })()}
 
             ${tokens ? html`<span class="agent-chat__token-count">${tokens}</span>` : nothing}
           </div>
