@@ -408,3 +408,36 @@
     display: none;
   }
 }
+
+@media (max-width: 640px) {
+  .agent-chat__search-bar,
+  .agent-chat__pinned,
+  .agent-chat__empty {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .agent-chat__input {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .agent-chat__toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .agent-chat__toolbar-left,
+  .agent-chat__toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .agent-chat__pinned-item {
+    grid-template-columns: 1fr auto;
+  }
+
+  .agent-chat__pinned-role {
+    grid-column: 1 / -1;
+  }
+}

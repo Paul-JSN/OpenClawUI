@@ -1,10 +1,5 @@
 import { extractText } from "../chat/message-extract.ts";
-import { formatConnectError } from "../connect-error.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
-import {
-  formatMissingOperatorReadScopeMessage,
-  isMissingOperatorReadScopeError,
-} from "./scope-errors.ts";
 import type { ChatAttachment } from "../ui-types.ts";
 import { generateUUID } from "../uuid.ts";
 
@@ -49,9 +44,7 @@ export async function loadChatHistory(state: ChatState) {
     state.chatMessages = Array.isArray(res.messages) ? res.messages : [];
     state.chatThinkingLevel = res.thinkingLevel ?? null;
   } catch (err) {
-    state.lastError = isMissingOperatorReadScopeError(err)
-      ? formatMissingOperatorReadScopeMessage("existing chat history")
-      : formatConnectError(err);
+    state.lastError = String(err);
   } finally {
     state.chatLoading = false;
   }
@@ -188,7 +181,7 @@ export async function sendChatMessage(
     });
     return runId;
   } catch (err) {
-    const error = formatConnectError(err);
+    const error = String(err);
     state.chatRunId = null;
     state.chatStream = null;
     state.chatStreamStartedAt = null;
@@ -219,7 +212,7 @@ export async function abortChatRun(state: ChatState): Promise<boolean> {
     );
     return true;
   } catch (err) {
-    state.lastError = formatConnectError(err);
+    state.lastError = String(err);
     return false;
   }
 }

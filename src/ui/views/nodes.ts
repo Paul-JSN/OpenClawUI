@@ -8,12 +8,6 @@ import type {
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "../controllers/exec-approvals.ts";
 import { formatRelativeTimestamp, formatList } from "../format.ts";
 import { renderExecApprovals, resolveExecApprovalsState } from "./nodes-exec-approvals.ts";
-import {
-  resolveConfigAgents,
-  resolveNodeTargets,
-  type NodeTargetOption,
-  type ConfigAgentOption,
-} from "./nodes-shared.ts";
 export type NodesProps = {
   loading: boolean;
   nodes: Array<Record<string, unknown>>;
@@ -252,7 +246,7 @@ type BindingState = {
 
 function resolveBindingsState(props: NodesProps): BindingState {
   const config = props.configForm;
-  const nodes = resolveNodeTargets(props.nodes, ["system.run"]);
+  const nodes = resolveExecNodes(props.nodes);
   const { defaultBinding, agents } = resolveAgentBindings(config);
   const ready = Boolean(config);
   const disabled = props.configSaving || props.configFormMode === "raw";
@@ -413,6 +407,31 @@ function renderAgentBinding(agent: BindingAgent, state: BindingState) {
   `;
 }
 
+function resolveExecNodes(nodes: Array<Record<string, unknown>>): BindingNode[] {
+  const list: BindingNode[] = [];
+  for (const node of nodes) {
+    const commands = Array.isArray(node.commands) ? node.commands : [];
+    const supports = commands.some((cmd) => String(cmd) === "system.run");
+    if (!supports) {
+      continue;
+    }
+    const nodeId = typeof node.nodeId === "string" ? node.nodeId.trim() : "";
+    if (!nodeId) {
+      continue;
+    }
+    const displayName =
+      typeof node.displayName === "string" && node.displayName.trim()
+        ? node.displayName.trim()
+        : nodeId;
+    list.push({
+      id: nodeId,
+      label: displayName === nodeId ? nodeId : `${displayName} · ${nodeId}`,
+    });
+  }
+  list.sort((a, b) => a.label.localeCompare(b.label));
+  return list;
+}
+
 function resolveAgentBindings(config: Record<string, unknown> | null): {
   defaultBinding?: string | null;
   agents: BindingAgent[];
@@ -432,13 +451,24 @@ function resolveAgentBindings(config: Record<string, unknown> | null): {
   const defaultBinding =
     typeof exec.node === "string" && exec.node.trim() ? exec.node.trim() : null;
 
-  const configAgents = resolveConfigAgents(config);
-  if (configAgents.length === 0) {
+  const agentsNode = (config.agents ?? {}) as Record<string, unknown>;
+  const list = Array.isArray(agentsNode.list) ? agentsNode.list : [];
+  if (list.length === 0) {
     return { defaultBinding, agents: [fallbackAgent] };
   }
 
   const agents: BindingAgent[] = [];
-  configAgents.forEach(({ record, id, name, isDefault, index }) => {
+  list.forEach((entry, index) => {
+    if (!entry || typeof entry !== "object") {
+      return;
+    }
+    const record = entry as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!id) {
+      return;
+    }
+    const name = typeof record.name === "string" ? record.name.trim() : undefined;
+    const isDefault = record.default === true;
     const toolsEntry = (record.tools ?? {}) as Record<string, unknown>;
     const execEntry = (toolsEntry.exec ?? {}) as Record<string, unknown>;
     const binding =

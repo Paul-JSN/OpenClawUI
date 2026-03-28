@@ -1,10 +1,5 @@
-import { formatConnectError } from "../connect-error.ts";
-import type { GatewayBrowserClient } from "../gateway.ts";
 import { lastNUtcDaysRange, localCurrentDayUtcCoverageRange } from "../views/charts/timezone.ts";
-import {
-  formatMissingOperatorReadScopeMessage,
-  isMissingOperatorReadScopeError,
-} from "./scope-errors.ts";
+import type { GatewayBrowserClient } from "../gateway.ts";
 import type {
   SessionsUsageResult,
   CostUsageSummary,
@@ -319,10 +314,23 @@ const buildDateInterpretationParams = (
 };
 
 function toErrorMessage(err: unknown): string {
-  if (isMissingOperatorReadScopeError(err)) {
-    return formatMissingOperatorReadScopeMessage("usage");
+  if (typeof err === "string") {
+    return err;
   }
-  return formatConnectError(err);
+  if (err instanceof Error && typeof err.message === "string" && err.message.trim()) {
+    return err.message;
+  }
+  if (err && typeof err === "object") {
+    try {
+      const serialized = JSON.stringify(err);
+      if (serialized) {
+        return serialized;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return "request failed";
 }
 
 async function requestUsageData(

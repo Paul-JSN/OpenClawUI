@@ -77,6 +77,11 @@ export function resolveAgentAvatarUrl(
   return null;
 }
 
+export function agentLogoUrl(basePath: string): string {
+  const base = basePath?.trim() ? basePath.replace(/\/$/, "") : "";
+  return base ? `${base}/favicon.svg` : "favicon.svg";
+}
+
 function isLikelyEmoji(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -99,11 +104,6 @@ function isLikelyEmoji(value: string) {
     return false;
   }
   return true;
-}
-
-export function agentLogoUrl(basePath: string): string {
-  const base = basePath?.trim() ? basePath.replace(/\/$/, "") : "";
-  return base ? `${base}/favicon.svg` : "favicon.svg";
 }
 
 export function resolveAgentEmoji(

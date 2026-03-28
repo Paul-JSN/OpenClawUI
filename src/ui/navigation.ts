@@ -5,18 +5,18 @@ export const TAB_GROUPS = [
   { label: "chat", tabs: ["chat"] },
   {
     label: "control",
-    tabs: ["overview", "channels", "instances", "sessions", "usage", "cron", "models"],
+    tabs: ["overview", "usage", "sessions", "channels", "instances", "cron", "models"],
   },
   { label: "agent", tabs: ["agents", "skills", "nodes"] },
   {
     label: "settings",
     tabs: [
+      "config",
       "communications",
       "appearance",
       "automation",
       "infrastructure",
       "aiAgents",
-      "config",
       "debug",
       "logs",
     ],
@@ -35,12 +35,12 @@ export type Tab =
   | "skills"
   | "nodes"
   | "chat"
+  | "config"
   | "communications"
   | "appearance"
   | "automation"
   | "infrastructure"
   | "aiAgents"
-  | "config"
   | "debug"
   | "logs";
 
@@ -56,12 +56,12 @@ const TAB_PATHS: Record<Tab, string> = {
   skills: "/skills",
   nodes: "/nodes",
   chat: "/chat",
+  config: "/config",
   communications: "/communications",
   appearance: "/appearance",
   automation: "/automation",
   infrastructure: "/infrastructure",
   aiAgents: "/aiAgents",
-  config: "/config",
   debug: "/debug",
   logs: "/logs",
 };
@@ -169,6 +169,10 @@ export function iconForTab(tab: Tab): IconName {
       return "loader";
     case "models":
       return "brain";
+    case "skills":
+      return "zap";
+    case "nodes":
+      return "monitor";
     case "communications":
       return "messageSquare";
     case "appearance":
@@ -179,10 +183,6 @@ export function iconForTab(tab: Tab): IconName {
       return "globe";
     case "aiAgents":
       return "brain";
-    case "skills":
-      return "zap";
-    case "nodes":
-      return "monitor";
     case "config":
       return "settings";
     case "debug":

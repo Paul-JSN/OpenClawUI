@@ -28,9 +28,6 @@ export type ToolStreamEntry = {
 type ToolStreamHost = {
   sessionKey: string;
   chatRunId: string | null;
-  chatStream: string | null;
-  chatStreamStartedAt: number | null;
-  chatStreamSegments: Array<{ text: string; ts: number }>;
   toolStreamById: Map<string, ToolStreamEntry>;
   toolStreamOrder: string[];
   chatToolMessages: Record<string, unknown>[];
@@ -234,14 +231,10 @@ export function scheduleToolStreamSync(host: ToolStreamHost, force = false) {
 }
 
 export function resetToolStream(host: ToolStreamHost) {
-  if (host.toolStreamSyncTimer != null) {
-    clearTimeout(host.toolStreamSyncTimer);
-    host.toolStreamSyncTimer = null;
-  }
   host.toolStreamById.clear();
   host.toolStreamOrder = [];
   host.chatToolMessages = [];
-  host.chatStreamSegments = [];
+  flushToolStreamSync(host);
 }
 
 export type CompactionStatus = {
@@ -408,14 +401,11 @@ export function handleAgentEvent(host: ToolStreamHost, payload?: AgentEventPaylo
   if (payload.stream !== "tool") {
     return;
   }
-
-  // Filter by session only. Don't check chatRunId because the client sets it
-  // to a client-generated UUID (via generateUUID in sendChatMessage), while
-  // tool events arrive with the server's engine runId — they can never match.
-  const sessionKey = typeof payload.sessionKey === "string" ? payload.sessionKey : undefined;
-  if (sessionKey && sessionKey !== host.sessionKey) {
+  const accepted = resolveAcceptedSession(host, payload);
+  if (!accepted.accepted) {
     return;
   }
+  const sessionKey = accepted.sessionKey;
 
   const data = payload.data ?? {};
   const toolCallId = typeof data.toolCallId === "string" ? data.toolCallId : "";
@@ -435,13 +425,6 @@ export function handleAgentEvent(host: ToolStreamHost, payload?: AgentEventPaylo
   const now = Date.now();
   let entry = host.toolStreamById.get(toolCallId);
   if (!entry) {
-    // Commit any in-progress streaming text as a segment so it renders
-    // above the tool card instead of below it.
-    if (host.chatStream && host.chatStream.trim().length > 0) {
-      host.chatStreamSegments = [...host.chatStreamSegments, { text: host.chatStream, ts: now }];
-      host.chatStream = null;
-      host.chatStreamStartedAt = null;
-    }
     entry = {
       toolCallId,
       runId: payload.runId,

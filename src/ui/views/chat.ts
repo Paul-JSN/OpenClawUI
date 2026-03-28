@@ -868,7 +868,7 @@ export function renderChat(props: ChatProps) {
   const placeholder = props.connected
     ? hasAttachments
       ? "Add a message or paste more images..."
-      : `Message ${props.assistantName || "agent"} (Enter to send)`
+      : "Send a message (Enter to send)"
     : "Connect to the gateway to start chatting...";
 
   const requestUpdate = props.onRequestUpdate ?? (() => {});

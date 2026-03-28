@@ -9,7 +9,6 @@ import type {
   SkillStatusReport,
   ToolsCatalogResult,
 } from "../types.ts";
-import { renderAgentOverview as renderAgentOverviewPanel } from "./agents-panels-overview.ts";
 import {
   renderAgentFiles,
   renderAgentChannels,
@@ -170,7 +169,7 @@ export function renderAgents(props: AgentsProps) {
                 ${renderAgentTabs(props.activePanel, (panel) => props.onSelectPanel(panel))}
                 ${
                   props.activePanel === "overview"
-                    ? renderAgentOverviewPanel({
+                    ? renderAgentOverview({
                         agent: selectedAgent,
                         defaultId,
                         configForm: props.configForm,

@@ -19,7 +19,6 @@ import {
   handleSendChat as handleSendChatInternal,
   removeQueuedMessage as removeQueuedMessageInternal,
 } from "./app-chat.ts";
-import { exportChatMarkdown } from "./chat/export.ts";
 import { DEFAULT_CRON_FORM, DEFAULT_LOG_LEVEL_FILTERS } from "./app-defaults.ts";
 import type { EventLogEntry } from "./app-events.ts";
 import { connectGateway as connectGatewayInternal } from "./app-gateway.ts";
@@ -129,23 +128,6 @@ export class OpenClawApp extends LitElement {
       void i18n.setLocale(this.settings.locale);
     }
   }
-
-  onSlashAction = (action: string) => {
-    switch (action) {
-      case "toggle-focus":
-        this.applySettings({
-          ...this.settings,
-          chatFocusMode: !this.settings.chatFocusMode,
-        });
-        break;
-      case "export":
-        exportChatMarkdown(this.chatMessages, this.assistantName);
-        break;
-      default:
-        break;
-    }
-  };
-
   @state() password = "";
   @state() tab: Tab = "chat";
   @state() onboarding = resolveOnboardingMode();
@@ -155,9 +137,6 @@ export class OpenClawApp extends LitElement {
   @state() hello: GatewayHelloOk | null = null;
   @state() lastError: string | null = null;
   @state() lastErrorCode: string | null = null;
-  @state() healthLoading = false;
-  @state() healthResult: import("./types.ts").HealthSummary | null = null;
-  @state() healthError: string | null = null;
   @state() eventLog: EventLogEntry[] = [];
   private eventLogBuffer: EventLogEntry[] = [];
   private toolStreamSyncTimer: number | null = null;
@@ -179,9 +158,6 @@ export class OpenClawApp extends LitElement {
   @state() compactionStatus: CompactionStatus | null = null;
   @state() fallbackStatus: FallbackStatus | null = null;
   @state() chatAvatarUrl: string | null = null;
-  chatModelOverrides: Record<string, import("./types.ts").ChatModelOverride | null> = {};
-  chatModelsLoading = false;
-  chatModelCatalog: import("./types.ts").ModelCatalogEntry[] = [];
   @state() chatThinkingLevel: string | null = null;
   @state() chatQueue: ChatQueueItem[] = [];
   @state() chatAttachments: ChatAttachment[] = [];
@@ -231,26 +207,6 @@ export class OpenClawApp extends LitElement {
   @state() configSearchQuery = "";
   @state() configActiveSection: string | null = null;
   @state() configActiveSubsection: string | null = null;
-  @state() communicationsFormMode: "form" | "raw" = "form";
-  @state() communicationsSearchQuery = "";
-  @state() communicationsActiveSection: string | null = null;
-  @state() communicationsActiveSubsection: string | null = null;
-  @state() appearanceFormMode: "form" | "raw" = "form";
-  @state() appearanceSearchQuery = "";
-  @state() appearanceActiveSection: string | null = null;
-  @state() appearanceActiveSubsection: string | null = null;
-  @state() automationFormMode: "form" | "raw" = "form";
-  @state() automationSearchQuery = "";
-  @state() automationActiveSection: string | null = null;
-  @state() automationActiveSubsection: string | null = null;
-  @state() infrastructureFormMode: "form" | "raw" = "form";
-  @state() infrastructureSearchQuery = "";
-  @state() infrastructureActiveSection: string | null = null;
-  @state() infrastructureActiveSubsection: string | null = null;
-  @state() aiAgentsFormMode: "form" | "raw" = "form";
-  @state() aiAgentsSearchQuery = "";
-  @state() aiAgentsActiveSection: string | null = null;
-  @state() aiAgentsActiveSubsection: string | null = null;
 
   @state() modelsOauthRunning = false;
   @state() modelsOauthSessionId: string | null = null;
@@ -425,8 +381,6 @@ export class OpenClawApp extends LitElement {
   @state() cronBusy = false;
 
   @state() updateAvailable: import("./types.js").UpdateAvailable | null = null;
-  @state() loginShowGatewayToken = false;
-  @state() loginShowGatewayPassword = false;
   @state() paletteOpen = false;
   @state() paletteQuery = "";
   @state() paletteActiveIndex = 0;
@@ -501,6 +455,12 @@ export class OpenClawApp extends LitElement {
   private themeMediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
   private topbarObserver: ResizeObserver | null = null;
   private globalKeydownHandler = (event: KeyboardEvent) => {
+    const target = event.target;
+    const typingTarget =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "k") {
       event.preventDefault();
       this.paletteOpen = !this.paletteOpen;
@@ -508,9 +468,19 @@ export class OpenClawApp extends LitElement {
         this.paletteQuery = "";
         this.paletteActiveIndex = 0;
       }
+      return;
+    }
+    if (event.key === "Escape" && this.paletteOpen) {
+      event.preventDefault();
+      this.paletteOpen = false;
+      this.paletteQuery = "";
+      this.paletteActiveIndex = 0;
+      return;
+    }
+    if (typingTarget) {
+      return;
     }
   };
-
   createRenderRoot() {
     return this;
   }

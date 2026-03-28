@@ -15,7 +15,6 @@ import type {
   CronStatus,
 } from "../types.ts";
 import { formatBytes, type AgentContext } from "./agents-utils.ts";
-import { resolveChannelExtras as resolveChannelConfigExtras } from "./channel-config-extras.ts";
 
 function renderAgentContextCard(context: AgentContext, subtitle: string) {
   return html`
@@ -235,11 +234,7 @@ export function renderAgentChannels(params: {
                       ? `${summary.configured} configured`
                       : "not configured";
                     const enabled = summary.total ? `${summary.enabled} enabled` : "disabled";
-                    const extras = resolveChannelConfigExtras({
-                      configForm: params.configForm,
-                      channelId: entry.id,
-                      fields: CHANNEL_EXTRA_FIELDS,
-                    });
+                    const extras = resolveChannelExtras(params.configForm, entry.id);
                     return html`
                       <div class="list-item">
                         <div class="list-main">

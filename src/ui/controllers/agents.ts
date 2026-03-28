@@ -1,10 +1,5 @@
-import { formatConnectError } from "../connect-error.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { AgentsListResult, ToolsCatalogResult } from "../types.ts";
-import {
-  formatMissingOperatorReadScopeMessage,
-  isMissingOperatorReadScopeError,
-} from "./scope-errors.ts";
 
 export type AgentsState = {
   client: GatewayBrowserClient | null;
@@ -38,9 +33,7 @@ export async function loadAgents(state: AgentsState) {
       }
     }
   } catch (err) {
-    state.agentsError = isMissingOperatorReadScopeError(err)
-      ? formatMissingOperatorReadScopeMessage("agent list")
-      : formatConnectError(err);
+    state.agentsError = String(err);
   } finally {
     state.agentsLoading = false;
   }
@@ -64,9 +57,7 @@ export async function loadToolsCatalog(state: AgentsState, agentId?: string | nu
       state.toolsCatalogResult = res;
     }
   } catch (err) {
-    state.toolsCatalogError = isMissingOperatorReadScopeError(err)
-      ? formatMissingOperatorReadScopeMessage("tools catalog")
-      : formatConnectError(err);
+    state.toolsCatalogError = String(err);
   } finally {
     state.toolsCatalogLoading = false;
   }

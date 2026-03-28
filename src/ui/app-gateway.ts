@@ -13,7 +13,6 @@ import {
 import { handleAgentEvent, resetToolStream, type AgentEventPayload } from "./app-tool-stream.ts";
 import type { OpenClawApp } from "./app.ts";
 import { shouldReloadHistoryForFinalEvent } from "./chat-event-reload.ts";
-import { formatConnectError } from "./connect-error.ts";
 import { loadAgents, loadToolsCatalog } from "./controllers/agents.ts";
 import { loadAssistantIdentity } from "./controllers/assistant-identity.ts";
 import { loadChatHistory } from "./controllers/chat.ts";
@@ -196,11 +195,7 @@ export function connectGateway(host: GatewayHost) {
         (typeof error?.code === "string" ? error.code : null);
       if (code !== 1012) {
         if (error?.message) {
-          host.lastError = formatConnectError({
-            message: error.message,
-            details: error.details,
-            code: error.code,
-          });
+          host.lastError = error.message;
           return;
         }
         host.lastError = `disconnected (${code}): ${reason || "no reason"}`;

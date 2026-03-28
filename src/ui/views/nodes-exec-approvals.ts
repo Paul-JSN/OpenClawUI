@@ -4,11 +4,6 @@ import type {
   ExecApprovalsFile,
 } from "../controllers/exec-approvals.ts";
 import { clampText, formatRelativeTimestamp } from "../format.ts";
-import {
-  resolveConfigAgents as resolveSharedConfigAgents,
-  resolveNodeTargets,
-  type NodeTargetOption,
-} from "./nodes-shared.ts";
 import type { NodesProps } from "./nodes.ts";
 
 type ExecSecurity = "deny" | "allowlist" | "full";
@@ -27,7 +22,10 @@ type ExecApprovalsAgentOption = {
   isDefault?: boolean;
 };
 
-type ExecApprovalsTargetNode = NodeTargetOption;
+type ExecApprovalsTargetNode = {
+  id: string;
+  label: string;
+};
 
 type ExecApprovalsState = {
   ready: boolean;
@@ -93,11 +91,23 @@ function resolveExecApprovalsDefaults(
 }
 
 function resolveConfigAgents(config: Record<string, unknown> | null): ExecApprovalsAgentOption[] {
-  return resolveSharedConfigAgents(config).map((entry) => ({
-    id: entry.id,
-    name: entry.name,
-    isDefault: entry.isDefault,
-  }));
+  const agentsNode = (config?.agents ?? {}) as Record<string, unknown>;
+  const list = Array.isArray(agentsNode.list) ? agentsNode.list : [];
+  const agents: ExecApprovalsAgentOption[] = [];
+  list.forEach((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return;
+    }
+    const record = entry as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!id) {
+      return;
+    }
+    const name = typeof record.name === "string" ? record.name.trim() : undefined;
+    const isDefault = record.default === true;
+    agents.push({ id, name: name || undefined, isDefault });
+  });
+  return agents;
 }
 
 function resolveExecApprovalsAgents(
@@ -613,5 +623,29 @@ function renderAllowlistEntry(
 function resolveExecApprovalsNodes(
   nodes: Array<Record<string, unknown>>,
 ): ExecApprovalsTargetNode[] {
-  return resolveNodeTargets(nodes, ["system.execApprovals.get", "system.execApprovals.set"]);
+  const list: ExecApprovalsTargetNode[] = [];
+  for (const node of nodes) {
+    const commands = Array.isArray(node.commands) ? node.commands : [];
+    const supports = commands.some(
+      (cmd) =>
+        String(cmd) === "system.execApprovals.get" || String(cmd) === "system.execApprovals.set",
+    );
+    if (!supports) {
+      continue;
+    }
+    const nodeId = typeof node.nodeId === "string" ? node.nodeId.trim() : "";
+    if (!nodeId) {
+      continue;
+    }
+    const displayName =
+      typeof node.displayName === "string" && node.displayName.trim()
+        ? node.displayName.trim()
+        : nodeId;
+    list.push({
+      id: nodeId,
+      label: displayName === nodeId ? nodeId : `${displayName} · ${nodeId}`,
+    });
+  }
+  list.sort((a, b) => a.label.localeCompare(b.label));
+  return list;
 }

@@ -1,11 +1,6 @@
-import { formatConnectError } from "../connect-error.ts";
 import { toNumber } from "../format.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { SessionsListResult } from "../types.ts";
-import {
-  formatMissingOperatorReadScopeMessage,
-  isMissingOperatorReadScopeError,
-} from "./scope-errors.ts";
 
 export type SessionsState = {
   client: GatewayBrowserClient | null;
@@ -56,9 +51,7 @@ export async function loadSessions(
       state.sessionsResult = res;
     }
   } catch (err) {
-    state.sessionsError = isMissingOperatorReadScopeError(err)
-      ? formatMissingOperatorReadScopeMessage("sessions")
-      : formatConnectError(err);
+    state.sessionsError = String(err);
   } finally {
     state.sessionsLoading = false;
   }
@@ -72,7 +65,6 @@ export async function patchSession(
     thinkingLevel?: string | null;
     verboseLevel?: string | null;
     reasoningLevel?: string | null;
-    model?: string | null;
   },
 ) {
   if (!state.client || !state.connected) {
@@ -91,14 +83,11 @@ export async function patchSession(
   if ("reasoningLevel" in patch) {
     params.reasoningLevel = patch.reasoningLevel;
   }
-  if ("model" in patch) {
-    params.model = patch.model;
-  }
   try {
     await state.client.request("sessions.patch", params);
     await loadSessions(state);
   } catch (err) {
-    state.sessionsError = formatConnectError(err);
+    state.sessionsError = String(err);
   }
 }
 
@@ -121,7 +110,7 @@ export async function deleteSession(state: SessionsState, key: string): Promise<
     await state.client.request("sessions.delete", { key, deleteTranscript: true });
     return true;
   } catch (err) {
-    state.sessionsError = formatConnectError(err);
+    state.sessionsError = String(err);
     return false;
   } finally {
     state.sessionsLoading = false;

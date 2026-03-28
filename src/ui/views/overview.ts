@@ -3,25 +3,12 @@ import "../components/echart-host.ts";
 import { formatDurationHuman } from "../format.ts";
 import type { GatewayHelloOk } from "../gateway.ts";
 import type { UiSettings } from "../storage.ts";
-import type {
-  AttentionItem,
-  CronJob,
-  CronStatus,
-  SessionsListResult,
-  SessionsUsageResult,
-  SkillStatusReport,
-} from "../types.ts";
-import type { EventLogEntry } from "../app-events.ts";
 import {
   buildReactCostByProviderOption,
   buildReactSourceDonutOption,
   buildReactTokenByProviderOption,
 } from "./charts/options.ts";
 import type { DisplayTimeZone } from "./charts/timezone.ts";
-import { renderOverviewAttention } from "./overview-attention.ts";
-import { renderOverviewCards } from "./overview-cards.ts";
-import { renderOverviewEventLog } from "./overview-event-log.ts";
-import { renderOverviewLogTail } from "./overview-log-tail.ts";
 import type { UsageAnalyticsViewModel } from "./usage-analytics-adapter.ts";
 
 export type OverviewProps = {
@@ -38,14 +25,6 @@ export type OverviewProps = {
   lastChannelsRefresh: number | null;
   usageLoading: boolean;
   usageError: string | null;
-  usageResult: SessionsUsageResult | null;
-  skillsReport: SkillStatusReport | null;
-  sessionsResult: SessionsListResult | null;
-  cronJobs: CronJob[];
-  cronStatus: CronStatus | null;
-  attentionItems: AttentionItem[];
-  eventLog: EventLogEntry[];
-  overviewLogLines: string[];
   usageAnalyticsView: UsageAnalyticsViewModel;
   displayTimeZone: DisplayTimeZone;
   onSettingsChange: (next: UiSettings) => void;
@@ -53,8 +32,6 @@ export type OverviewProps = {
   onSessionKeyChange: (next: string) => void;
   onConnect: () => void;
   onRefresh: () => void;
-  onNavigate: (tab: string) => void;
-  onRefreshLogs: () => void;
 };
 
 function formatTokens(value: number): string {
@@ -338,31 +315,6 @@ export function renderOverview(props: OverviewProps) {
           <strong class=${cronStatus === "running" ? "ok" : "warn"}>${cronStatus}</strong>
         </article>
       </div>
-
-      <div style="margin-top: 24px;">
-        ${renderOverviewCards({
-          usageResult: props.usageResult,
-          sessionsResult: props.sessionsResult,
-          skillsReport: props.skillsReport,
-          cronJobs: props.cronJobs,
-          cronStatus: props.cronStatus,
-          presenceCount: props.presenceCount,
-          onNavigate: props.onNavigate,
-        })}
-      </div>
-
-      ${props.attentionItems.length > 0 || props.eventLog.length > 0 || props.overviewLogLines.length > 0
-        ? html`
-            <div class="stack" style="margin-top: 24px; gap: 16px;">
-              ${renderOverviewAttention({ items: props.attentionItems })}
-              ${renderOverviewEventLog({ events: props.eventLog })}
-              ${renderOverviewLogTail({
-                lines: props.overviewLogLines,
-                onRefreshLogs: props.onRefreshLogs,
-              })}
-            </div>
-          `
-        : ""}
 
       ${props.usageLoading ? html`<div class="callout">Loading overview analytics…</div>` : ""}
       ${props.usageError ? html`<div class="callout warning">${props.usageError}</div>` : ""}
