@@ -84,12 +84,7 @@ export function renderTab(state: AppViewState, tab: Tab) {
 }
 
 export function renderChatSessionSelect(state: AppViewState) {
-  const mainSessionKey = resolveMainSessionKey(state.hello, state.sessionsResult);
-  const sessionOptions = resolveSessionOptions(
-    state.sessionKey,
-    state.sessionsResult,
-    mainSessionKey,
-  );
+  const modelSelect = renderChatModelSelect(state);
   return html`
     <div class="chat-controls__session-row">
       <label class="field chat-controls__session">
@@ -129,17 +124,135 @@ export function renderChatSessionSelect(state: AppViewState) {
           )}
         </select>
       </label>
+      ${modelSelect}
     </div>
   `;
 }
 
+type ChatModelOption = { value: string; label: string };
+
+function buildQualifiedModelValue(model: string, provider?: string | null): string {
+  const trimmedModel = model.trim();
+  if (!trimmedModel) {
+    return "";
+  }
+  const trimmedProvider = provider?.trim();
+  return trimmedProvider ? `${trimmedProvider}/${trimmedModel}` : trimmedModel;
+}
+
+function formatChatModelLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const idx = trimmed.indexOf("/");
+  if (idx <= 0) {
+    return trimmed;
+  }
+  return `${trimmed.slice(idx + 1)} · ${trimmed.slice(0, idx)}`;
+}
+
+function resolveActiveChatModelValue(state: AppViewState): string {
+  const row = state.sessionsResult?.sessions?.find((entry) => entry.key === state.sessionKey);
+  if (!row?.model) {
+    return "";
+  }
+  return buildQualifiedModelValue(row.model, row.modelProvider);
+}
+
+function resolveDefaultChatModelValue(state: AppViewState): string {
+  const model = state.sessionsResult?.defaults?.model?.trim();
+  if (model) {
+    return model;
+  }
+  return state.modelsDefaults?.primary?.trim?.() || "";
+}
+
+function resolveChatModelOptions(state: AppViewState): ChatModelOption[] {
+  const seen = new Set<string>();
+  const options: ChatModelOption[] = [];
+  const add = (value: string, label?: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    options.push({ value: trimmed, label: label ?? (formatChatModelLabel(trimmed) || trimmed) });
+  };
+
+  for (const [providerId, provider] of Object.entries(state.modelsProviders ?? {})) {
+    for (const model of provider.models ?? []) {
+      add(buildQualifiedModelValue(model.id, providerId), `${model.id} · ${providerId}`);
+    }
+  }
+  for (const alias of state.modelsAliases ?? []) {
+    add(alias.alias, `${alias.alias} · alias`);
+  }
+  add(resolveActiveChatModelValue(state));
+  add(resolveDefaultChatModelValue(state));
+  return options;
+}
+
+async function switchChatModel(state: AppViewState, nextModel: string) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  const currentValue = resolveActiveChatModelValue(state);
+  if (currentValue === nextModel) {
+    return;
+  }
+  state.lastError = null;
+  try {
+    await state.client.request("sessions.patch", {
+      key: state.sessionKey,
+      model: nextModel || null,
+    });
+    await loadSessions(state as unknown as Parameters<typeof loadSessions>[0], {
+      activeMinutes: 0,
+      limit: 0,
+      includeGlobal: true,
+      includeUnknown: true,
+    });
+  } catch (err) {
+    state.lastError = `Failed to set model: ${String(err)}`;
+  }
+}
+
+function renderChatModelSelect(state: AppViewState) {
+  const currentValue = resolveActiveChatModelValue(state);
+  const defaultValue = resolveDefaultChatModelValue(state);
+  const options = resolveChatModelOptions(state);
+  const busy = state.chatLoading || state.chatSending || Boolean(state.chatRunId) || state.chatStream !== null;
+  const disabled = !state.connected || busy || options.length === 0 || !state.client;
+  const defaultLabel = defaultValue ? `Default (${formatChatModelLabel(defaultValue) || defaultValue})` : "Default model";
+  return html`
+    <label class="field chat-controls__session chat-controls__model">
+      <select
+        data-chat-model-select="true"
+        aria-label="Chat model"
+        ?disabled=${disabled}
+        @change=${async (e: Event) => {
+          const next = (e.target as HTMLSelectElement).value.trim();
+          await switchChatModel(state, next);
+        }}
+      >
+        <option value="" ?selected=${currentValue === ""}>${defaultLabel}</option>
+        ${repeat(
+          options,
+          (entry) => entry.value,
+          (entry) =>
+            html`<option value=${entry.value} ?selected=${entry.value === currentValue}>${entry.label}</option>`,
+        )}
+      </select>
+    </label>
+  `;
+}
+
 export function renderChatControls(state: AppViewState) {
-  const mainSessionKey = resolveMainSessionKey(state.hello, state.sessionsResult);
-  const sessionOptions = resolveSessionOptions(
-    state.sessionKey,
-    state.sessionsResult,
-    mainSessionKey,
-  );
   const disableThinkingToggle = state.onboarding;
   const disableFocusToggle = state.onboarding;
   const disableToolCallsToggle = state.onboarding;

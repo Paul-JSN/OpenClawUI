@@ -141,6 +141,41 @@
   height: 20px;
 }
 
+.topnav-shell .dashboard-header,
+.topbar-left .dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topnav-shell .dashboard-header__breadcrumb,
+.topbar-left .dashboard-header__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.topnav-shell .dashboard-header__breadcrumb-link,
+.topnav-shell .dashboard-header__breadcrumb-sep,
+.topbar-left .dashboard-header__breadcrumb-link,
+.topbar-left .dashboard-header__breadcrumb-sep {
+  color: var(--muted);
+}
+
+.topnav-shell .dashboard-header__breadcrumb-current,
+.topbar-left .dashboard-header__breadcrumb-current {
+  color: var(--text-strong);
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Brand */
 .brand {
   display: flex;
@@ -1183,41 +1218,36 @@
 .topbar-search {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  background: var(--secondary);
+  gap: 12px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
   color: var(--muted);
+  font-size: 13px;
   cursor: pointer;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
   transition:
     border-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    background var(--duration-fast) ease;
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+  min-width: 200px;
 }
 
 .topbar-search:hover {
-  border-color: var(--accent-glow);
-  color: var(--text-strong);
-  background: var(--bg-hover);
+  border-color: color-mix(in srgb, var(--border-strong) 90%, transparent);
+  background: color-mix(in srgb, var(--bg-hover) 84%, transparent);
+  color: var(--text);
 }
 
-.topbar-search__icon,
-.topbar-search__icon svg {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  fill: none;
-  flex-shrink: 0;
+.topbar-search:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .topbar-search__label {
-  line-height: 1;
+  flex: 1;
+  text-align: left;
 }
 
 .topbar-search__kbd {

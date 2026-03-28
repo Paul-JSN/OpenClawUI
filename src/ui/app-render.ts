@@ -2,6 +2,7 @@
 import { parseAgentSessionKey } from "../../../src/routing/session-key.js";
 import { t } from "../i18n/index.ts";
 import { refreshChatAvatar } from "./app-chat.ts";
+import "./components/dashboard-header.ts";
 import {
   renderChatControls,
   renderChatSessionSelect,
@@ -403,11 +404,7 @@ export function renderApp(state: AppViewState) {
     <div class="shell scanline ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
       <header class="topbar">
         <div class="topbar-left">
-          <div class="topbar-title">
-            <span class="topbar-title__main">Control Panel</span>
-            <span class="topbar-title__sep">//</span>
-            <span class="topbar-title__sub">Analytics</span>
-          </div>
+          <dashboard-header .tab=${state.tab}></dashboard-header>
         </div>
         <div class="topbar-status">
           <button
@@ -420,12 +417,11 @@ export function renderApp(state: AppViewState) {
                 state.paletteActiveIndex = 0;
               }
             }}
-            title="Search or jump to… (Ctrl/Cmd+K)"
+            title="Search or jump to… (⌘K)"
             aria-label="Open command palette"
           >
-            <span class="topbar-search__icon" aria-hidden="true">${icons.search}</span>
             <span class="topbar-search__label">${t("common.search")}</span>
-            <kbd class="topbar-search__kbd">Ctrl K</kbd>
+            <kbd class="topbar-search__kbd">⌘K</kbd>
           </button>
           <div class="topbar-conn ${state.connected ? "is-online" : "is-offline"}">
             <span class="topbar-conn__dot"></span>
