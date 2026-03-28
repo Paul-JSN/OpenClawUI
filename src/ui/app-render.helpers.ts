@@ -84,6 +84,12 @@ export function renderTab(state: AppViewState, tab: Tab) {
 }
 
 export function renderChatSessionSelect(state: AppViewState) {
+  const mainSessionKey = resolveMainSessionKey(state.hello, state.sessionsResult);
+  const sessionOptions = resolveSessionOptions(
+    state.sessionKey,
+    state.sessionsResult,
+    mainSessionKey,
+  );
   const modelSelect = renderChatModelSelect(state);
   return html`
     <div class="chat-controls__session-row">
