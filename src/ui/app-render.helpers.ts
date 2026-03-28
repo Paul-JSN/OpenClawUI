@@ -71,6 +71,18 @@ export function renderTab(state: AppViewState, tab: Tab) {
             resetChatStateForSessionSwitch(state, mainSessionKey);
             void state.loadAssistantIdentity();
           }
+          const anchor = event.currentTarget as HTMLAnchorElement | null;
+          if (anchor && typeof window !== "undefined") {
+            const targetUrl = new URL(anchor.href, window.location.href);
+            if (mainSessionKey) {
+              targetUrl.searchParams.set("session", mainSessionKey);
+            }
+            const currentUrl = new URL(window.location.href);
+            if (currentUrl.pathname !== targetUrl.pathname) {
+              window.location.assign(targetUrl.toString());
+              return;
+            }
+          }
         }
         state.setTab(tab);
       }}
